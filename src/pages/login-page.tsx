@@ -59,7 +59,11 @@ export function LoginPage() {
         {loginMutation.isError && (
           <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-            <span>{extractErrorMessage(loginMutation.error, "E-mail ou senha inválidos.")}</span>
+            <span>
+              {extractErrorMessage(loginMutation.error, "E-mail ou senha inválidos.", {
+                "Invalid credentials.": "E-mail ou senha inválidos.",
+              })}
+            </span>
           </div>
         )}
 

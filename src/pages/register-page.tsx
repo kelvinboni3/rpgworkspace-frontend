@@ -67,7 +67,11 @@ export function RegisterPage() {
         {registerMutation.isError && (
           <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-            <span>{extractErrorMessage(registerMutation.error, "Não foi possível criar sua conta.")}</span>
+            <span>
+              {extractErrorMessage(registerMutation.error, "Não foi possível criar sua conta.", {
+                "E-mail already in use.": "Este e-mail já está em uso.",
+              })}
+            </span>
           </div>
         )}
 

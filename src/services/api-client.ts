@@ -17,3 +17,18 @@ apiClient.interceptors.request.use((config) => {
 
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const isAuthEndpoint =
+      typeof error.config?.url === "string" && error.config.url.includes("/auth/");
+
+    if (error.response?.status === 401 && !isAuthEndpoint && authStore.isAuthenticated()) {
+      authStore.clearSession();
+      window.location.assign("/login");
+    }
+
+    return Promise.reject(error);
+  },
+);
