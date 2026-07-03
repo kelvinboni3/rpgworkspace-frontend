@@ -1,6 +1,6 @@
 import { Loader2, TriangleAlert } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { AuthShell } from "@/components/auth/auth-shell";
@@ -14,54 +14,75 @@ import { authStore } from "@/store/auth-store";
 import { extractErrorMessage } from "@/utils/api-error";
 import { zodResolver } from "@/utils/form";
 
-const loginSchema = z.object({
-  email: z.email("Informe um e-mail válido"),
-  password: z.string().min(1, "Informe sua senha"),
-});
+const registerSchema = z
+  .object({
+    name: z.string().min(2, "Informe seu nome"),
+    email: z.email("Informe um e-mail válido"),
+    password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
 
-type LoginFormValues = z.infer<typeof loginSchema>;
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
-export function LoginPage() {
+export function RegisterPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const redirectTo =
-    (location.state as { from?: { pathname: string } } | null)?.from
-      ?.pathname ?? paths.home;
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
+  } = useForm<RegisterFormValues>({ resolver: zodResolver(registerSchema) });
 
-  const loginMutation = useMutation({
-    mutationFn: AuthService.login,
+  const registerMutation = useMutation({
+    mutationFn: (values: RegisterFormValues) =>
+      AuthService.register({
+        name: values.name,
+        email: values.email,
+        password: values.password,
+      }),
     onSuccess: (data) => {
       authStore.setSession(data.accessToken, {
         id: data.userId,
         name: data.name,
         email: data.email,
       });
-      navigate(redirectTo, { replace: true });
+      navigate(paths.home, { replace: true });
     },
   });
 
-  const onSubmit: SubmitHandler<LoginFormValues> = (values) => {
-    loginMutation.mutate(values);
+  const onSubmit: SubmitHandler<RegisterFormValues> = (values) => {
+    registerMutation.mutate(values);
   };
 
   return (
     <AuthShell
-      title="Bem-vindo de volta"
-      description="Entre para continuar sua campanha."
+      title="Crie sua conta"
+      description="Monte seu workspace e comece a organizar sua campanha."
     >
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-        {loginMutation.isError && (
+        {registerMutation.isError && (
           <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-            <span>{extractErrorMessage(loginMutation.error, "E-mail ou senha inválidos.")}</span>
+            <span>{extractErrorMessage(registerMutation.error, "Não foi possível criar sua conta.")}</span>
           </div>
         )}
+
+        <div className="space-y-2">
+          <Label htmlFor="name">Nome</Label>
+          <Input
+            id="name"
+            autoComplete="name"
+            placeholder="Como podemos te chamar"
+            {...register("name")}
+          />
+          {errors.name && (
+            <p className="text-destructive text-sm">{errors.name.message}</p>
+          )}
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="email">E-mail</Label>
@@ -81,7 +102,7 @@ export function LoginPage() {
           <Label htmlFor="password">Senha</Label>
           <PasswordInput
             id="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             placeholder="••••••••"
             {...register("password")}
           />
@@ -90,27 +111,40 @@ export function LoginPage() {
           )}
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirmar senha</Label>
+          <PasswordInput
+            id="confirmPassword"
+            autoComplete="new-password"
+            placeholder="••••••••"
+            {...register("confirmPassword")}
+          />
+          {errors.confirmPassword && (
+            <p className="text-destructive text-sm">{errors.confirmPassword.message}</p>
+          )}
+        </div>
+
         <Button
           type="submit"
           size="lg"
           className="shadow-glow w-full"
-          disabled={loginMutation.isPending}
+          disabled={registerMutation.isPending}
         >
-          {loginMutation.isPending ? (
+          {registerMutation.isPending ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Entrando...
+              Criando conta...
             </>
           ) : (
-            "Entrar"
+            "Criar conta"
           )}
         </Button>
       </form>
 
       <p className="text-muted-foreground mt-6 text-center text-sm">
-        Ainda não tem uma conta?{" "}
-        <Link to={paths.register} className="text-primary font-medium hover:underline">
-          Criar conta
+        Já tem uma conta?{" "}
+        <Link to={paths.login} className="text-primary font-medium hover:underline">
+          Entrar
         </Link>
       </p>
     </AuthShell>
