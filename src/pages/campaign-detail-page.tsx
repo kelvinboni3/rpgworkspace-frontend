@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
+import { CharactersSection } from "@/components/campaign/characters-section";
 import { LocationsSection } from "@/components/campaign/locations-section";
 import { NpcsSection } from "@/components/campaign/npcs-section";
 import { QuestsSection } from "@/components/campaign/quests-section";
@@ -14,6 +15,7 @@ import { cn } from "@/utils/cn";
 import { extractErrorMessage } from "@/utils/api-error";
 
 const TABS = [
+  { key: "characters", label: "Personagens" },
   { key: "sessions", label: "Sessões" },
   { key: "npcs", label: "NPCs" },
   { key: "locations", label: "Locais" },
@@ -25,7 +27,7 @@ type TabKey = (typeof TABS)[number]["key"];
 export function CampaignDetailPage() {
   const { campaignId } = useParams<{ campaignId: string }>();
   const currentUserId = authStore.getUser()?.id;
-  const [activeTab, setActiveTab] = useState<TabKey>("sessions");
+  const [activeTab, setActiveTab] = useState<TabKey>("characters");
 
   const campaignQuery = useQuery({
     queryKey: ["campaigns", campaignId],
@@ -105,6 +107,13 @@ export function CampaignDetailPage() {
         ))}
       </div>
 
+      {activeTab === "characters" && (
+        <CharactersSection
+          campaignId={campaignId}
+          currentUserId={currentUserId}
+          members={membersQuery.data ?? []}
+        />
+      )}
       {activeTab === "sessions" && (
         <SessionsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
       )}
