@@ -254,24 +254,26 @@ export function WorkspaceDetailPage() {
 
 function CampaignCard({ campaign }: { campaign: Campaign }) {
   return (
-    <Card className="glass-panel">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-1">{campaign.name}</CardTitle>
-          {campaign.systemName && (
-            <span className="bg-secondary text-secondary-foreground shrink-0 rounded-full px-2 py-0.5 text-xs font-medium">
-              {campaign.systemName}
-            </span>
-          )}
-        </div>
-        <CardDescription className="line-clamp-2">
-          {campaign.description || "Sem descrição."}
-        </CardDescription>
-      </CardHeader>
-      <CardFooter className="text-muted-foreground text-xs">
-        <CalendarDays className="mr-1.5 size-3.5" />
-        Criada em {new Date(campaign.createdAt).toLocaleDateString("pt-BR")}
-      </CardFooter>
-    </Card>
+    <Link to={paths.campaign(campaign.id)} className="block">
+      <Card className="glass-panel hover:border-primary/40 h-full transition-colors">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="line-clamp-1">{campaign.name}</CardTitle>
+            {campaign.systemName && (
+              <span className="bg-secondary text-secondary-foreground shrink-0 rounded-full px-2 py-0.5 text-xs font-medium">
+                {campaign.systemName}
+              </span>
+            )}
+          </div>
+          <CardDescription className="line-clamp-2">
+            {campaign.description || "Sem descrição."}
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="text-muted-foreground text-xs">
+          <CalendarDays className="mr-1.5 size-3.5" />
+          Criada em {new Date(campaign.createdAt).toLocaleDateString("pt-BR")}
+        </CardFooter>
+      </Card>
+    </Link>
   );
 }
