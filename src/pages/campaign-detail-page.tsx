@@ -2,7 +2,9 @@ import { useState } from "react";
 import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
+import { LocationsSection } from "@/components/campaign/locations-section";
 import { NpcsSection } from "@/components/campaign/npcs-section";
+import { QuestsSection } from "@/components/campaign/quests-section";
 import { SessionsSection } from "@/components/campaign/sessions-section";
 import { paths } from "@/routes/paths";
 import { CampaignService } from "@/services/campaign-service";
@@ -14,6 +16,8 @@ import { extractErrorMessage } from "@/utils/api-error";
 const TABS = [
   { key: "sessions", label: "Sessões" },
   { key: "npcs", label: "NPCs" },
+  { key: "locations", label: "Locais" },
+  { key: "quests", label: "Quests" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -106,6 +110,12 @@ export function CampaignDetailPage() {
       )}
       {activeTab === "npcs" && (
         <NpcsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
+      )}
+      {activeTab === "locations" && (
+        <LocationsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
+      )}
+      {activeTab === "quests" && (
+        <QuestsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
       )}
     </div>
   );
