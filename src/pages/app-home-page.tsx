@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CalendarDays, Compass, Loader2, Plus, TriangleAlert } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
+import { Link } from "react-router";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { paths } from "@/routes/paths";
 import { WorkspaceService, type Workspace } from "@/services/workspace-service";
 import { authStore } from "@/store/auth-store";
 import { cn } from "@/utils/cn";
@@ -195,27 +197,29 @@ function WorkspaceCard({
   const isOwner = workspace.ownerUserId === currentUserId;
 
   return (
-    <Card className="glass-panel hover:border-primary/40 transition-colors">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-1">{workspace.name}</CardTitle>
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-              isOwner ? "bg-accent/15 text-accent" : "bg-secondary text-secondary-foreground",
-            )}
-          >
-            {isOwner ? "Dono" : "Membro"}
-          </span>
-        </div>
-        <CardDescription className="line-clamp-2">
-          {workspace.description || "Sem descrição."}
-        </CardDescription>
-      </CardHeader>
-      <CardFooter className="text-muted-foreground text-xs">
-        <CalendarDays className="mr-1.5 size-3.5" />
-        Criado em {new Date(workspace.createdAt).toLocaleDateString("pt-BR")}
-      </CardFooter>
-    </Card>
+    <Link to={paths.workspace(workspace.id)} className="block">
+      <Card className="glass-panel hover:border-primary/40 h-full transition-colors">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="line-clamp-1">{workspace.name}</CardTitle>
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
+                isOwner ? "bg-accent/15 text-accent" : "bg-secondary text-secondary-foreground",
+              )}
+            >
+              {isOwner ? "Dono" : "Membro"}
+            </span>
+          </div>
+          <CardDescription className="line-clamp-2">
+            {workspace.description || "Sem descrição."}
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="text-muted-foreground text-xs">
+          <CalendarDays className="mr-1.5 size-3.5" />
+          Criado em {new Date(workspace.createdAt).toLocaleDateString("pt-BR")}
+        </CardFooter>
+      </Card>
+    </Link>
   );
 }
