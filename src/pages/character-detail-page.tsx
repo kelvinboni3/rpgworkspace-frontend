@@ -4,14 +4,20 @@ import {
   BookOpen,
   Lightbulb,
   Loader2,
+  NotebookTabs,
+  Plus,
   Scroll,
   Target,
   TriangleAlert,
   Users,
 } from "lucide-react";
+import { useForm } from "react-hook-form";
 import { Link, useParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { CharacterDashboardSummary } from "@/components/campaign/character-dashboard-summary";
+import { CharacterTabSection } from "@/components/campaign/character-tab-section";
 import { ImportantPeopleSection } from "@/components/campaign/important-people-section";
 import { NarrativeItemsSection } from "@/components/campaign/narrative-items-section";
 import { OperationsSection } from "@/components/campaign/operations-section";
@@ -20,6 +26,7 @@ import { TheoriesSection } from "@/components/campaign/theories-section";
 import { paths } from "@/routes/paths";
 import { CampaignService } from "@/services/campaign-service";
 import { CHARACTER_STATUS_LABELS, CharacterService } from "@/services/character-service";
+import { CharacterTabService } from "@/services/character-tab-service";
 import { WorkspaceMemberService, WorkspaceRole } from "@/services/workspace-member-service";
 import { authStore } from "@/store/auth-store";
 import { cn } from "@/utils/cn";
@@ -33,12 +40,12 @@ const TABS = [
   { key: "important-people", label: "Pessoas", icon: Users },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
-
 export function CharacterDetailPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const currentUserId = authStore.getUser()?.id;
-  const [activeTab, setActiveTab] = useState<TabKey>("notes");
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<string>("notes");
+  const [isAddingTab, setIsAddingTab] = useState(false);
 
   const characterQuery = useQuery({
     queryKey: ["characters", characterId],
@@ -73,6 +80,34 @@ export function CharacterDetailPage() {
     queryFn: () => CharacterService.getDashboard(characterId!),
     enabled: Boolean(characterId) && canAccessJournal,
   });
+
+  const tabsQuery = useQuery({
+    queryKey: ["characters", characterId, "tabs"],
+    queryFn: () => CharacterTabService.getAllByCharacter(characterId!),
+    enabled: Boolean(characterId) && canAccessJournal,
+  });
+
+  const customTabs = tabsQuery.data ?? [];
+
+  const {
+    register: registerNewTab,
+    handleSubmit: handleSubmitNewTab,
+    reset: resetNewTabForm,
+  } = useForm<{ name: string }>();
+
+  const createTabMutation = useMutation({
+    mutationFn: (name: string) => CharacterTabService.create(characterId!, { name }),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["characters", characterId, "tabs"] });
+      setActiveTab(created.id);
+      setIsAddingTab(false);
+    },
+  });
+
+  const openAddTabForm = () => {
+    resetNewTabForm({ name: "" });
+    setIsAddingTab(true);
+  };
 
   if (!characterId) return null;
 
@@ -156,7 +191,49 @@ export function CharacterDetailPage() {
                     </button>
                   );
                 })}
+                {customTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn("dossier-tab", activeTab === tab.id && "active")}
+                  >
+                    <NotebookTabs className="dossier-tab-icon size-3.5" />
+                    {tab.name}
+                  </button>
+                ))}
+                <button type="button" onClick={openAddTabForm} className="dossier-tab">
+                  <Plus className="dossier-tab-icon size-3.5" />
+                  Nova aba
+                </button>
               </div>
+
+              {isAddingTab && (
+                <form
+                  onSubmit={handleSubmitNewTab((values) => createTabMutation.mutate(values.name))}
+                  noValidate
+                  className="flex items-end gap-2"
+                >
+                  <div className="max-w-xs flex-1 space-y-2">
+                    <Input
+                      placeholder="Nome da nova aba (ex.: Persona, Quarto...)"
+                      {...registerNewTab("name", { required: true, maxLength: 100 })}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setIsAddingTab(false)}
+                    disabled={createTabMutation.isPending}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createTabMutation.isPending}>
+                    {createTabMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                    Criar aba
+                  </Button>
+                </form>
+              )}
 
               {campaignId && activeTab === "notes" && (
                 <PlayerNotesSection characterId={characterId} campaignId={campaignId} />
@@ -168,6 +245,18 @@ export function CharacterDetailPage() {
               {activeTab === "operations" && <OperationsSection characterId={characterId} />}
               {activeTab === "important-people" && (
                 <ImportantPeopleSection characterId={characterId} />
+              )}
+              {customTabs.map(
+                (tab) =>
+                  activeTab === tab.id && (
+                    <CharacterTabSection
+                      key={tab.id}
+                      tabId={tab.id}
+                      tabName={tab.name}
+                      characterId={characterId}
+                      onTabDeleted={() => setActiveTab("notes")}
+                    />
+                  ),
               )}
             </>
           )}
