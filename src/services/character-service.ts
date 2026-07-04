@@ -28,6 +28,7 @@ export type Character = {
   class: string | null;
   level: number;
   status: CharacterStatusValue;
+  portraitUrl: string | null;
   createdAt: string;
   updatedAt: string | null;
 };
@@ -111,6 +112,11 @@ export const CharacterService = {
 
   async remove(id: string) {
     await apiClient.delete(`/characters/${id}`);
+  },
+
+  async updatePortrait(id: string, portraitUrl: string | null) {
+    const response = await apiClient.put<Character>(`/characters/${id}/portrait`, { portraitUrl });
+    return response.data;
   },
 
   async getDashboard(characterId: string) {

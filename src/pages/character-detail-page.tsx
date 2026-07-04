@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowLeft,
   BookOpen,
+  Camera,
   Lightbulb,
   Loader2,
   NotebookTabs,
   Plus,
   Scroll,
+  Sparkles,
   Target,
   TriangleAlert,
+  UserRound,
   Users,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -16,6 +19,7 @@ import { Link, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CharacterAttributesSection } from "@/components/campaign/character-attributes-section";
 import { CharacterDashboardSummary } from "@/components/campaign/character-dashboard-summary";
 import { CharacterTabSection } from "@/components/campaign/character-tab-section";
 import { ImportantPeopleSection } from "@/components/campaign/important-people-section";
@@ -30,9 +34,11 @@ import { CharacterTabService } from "@/services/character-tab-service";
 import { WorkspaceMemberService, WorkspaceRole } from "@/services/workspace-member-service";
 import { authStore } from "@/store/auth-store";
 import { cn } from "@/utils/cn";
+import { resizeImageToDataUrl } from "@/utils/image";
 import { extractErrorMessage } from "@/utils/api-error";
 
 const TABS = [
+  { key: "status", label: "Status", icon: Sparkles },
   { key: "notes", label: "Notas", icon: BookOpen },
   { key: "narrative-items", label: "Itens Narrativos", icon: Scroll },
   { key: "theories", label: "Teorias", icon: Lightbulb },
@@ -44,8 +50,9 @@ export function CharacterDetailPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const currentUserId = authStore.getUser()?.id;
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("notes");
+  const [activeTab, setActiveTab] = useState<string>("status");
   const [isAddingTab, setIsAddingTab] = useState(false);
+  const portraitInputRef = useRef<HTMLInputElement>(null);
 
   const characterQuery = useQuery({
     queryKey: ["characters", characterId],
@@ -109,6 +116,23 @@ export function CharacterDetailPage() {
     setIsAddingTab(true);
   };
 
+  const updatePortraitMutation = useMutation({
+    mutationFn: (portraitUrl: string | null) =>
+      CharacterService.updatePortrait(characterId!, portraitUrl),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["characters", characterId] });
+    },
+  });
+
+  const handlePortraitFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const dataUrl = await resizeImageToDataUrl(file);
+    updatePortraitMutation.mutate(dataUrl);
+  };
+
   if (!characterId) return null;
 
   const isLoading = characterQuery.isLoading || campaignQuery.isLoading || membersQuery.isLoading;
@@ -137,28 +161,72 @@ export function CharacterDetailPage() {
             {extractErrorMessage(characterQuery.error, "Não foi possível carregar este personagem.")}
           </div>
         ) : (
-          <div className="dossier-frame glass-panel space-y-1 px-6 py-5">
-            <div className="dossier-eyebrow">Ficha · Dossiê Pessoal</div>
-            <div className="flex items-center gap-3">
-              <h1 className="font-display text-primary text-3xl font-bold">
-                {characterQuery.data?.name}
-              </h1>
-              {characterQuery.data && (
-                <span className="border-primary/40 text-primary rounded-none border px-2 py-0.5 text-xs font-medium tracking-wide">
-                  {CHARACTER_STATUS_LABELS[characterQuery.data.status]}
-                </span>
+          <div className="dossier-frame glass-panel flex items-start gap-5 px-6 py-5">
+            <input
+              ref={portraitInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePortraitFileSelected}
+            />
+            <button
+              type="button"
+              onClick={() => portraitInputRef.current?.click()}
+              className="border-border/60 bg-background/40 group relative size-20 shrink-0 overflow-hidden border"
+              title="Alterar retrato"
+            >
+              {characterQuery.data?.portraitUrl ? (
+                <img
+                  src={characterQuery.data.portraitUrl}
+                  alt="Retrato do personagem"
+                  className="size-full object-cover"
+                />
+              ) : (
+                <div className="text-muted-foreground flex size-full items-center justify-center">
+                  <UserRound className="size-8" />
+                </div>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
+                {updatePortraitMutation.isPending ? (
+                  <Loader2 className="size-5 animate-spin text-white" />
+                ) : (
+                  <Camera className="size-5 text-white" />
+                )}
+              </div>
+            </button>
+
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="dossier-eyebrow">Ficha · Dossiê Pessoal</div>
+              <div className="flex items-center gap-3">
+                <h1 className="font-display text-primary text-3xl font-bold">
+                  {characterQuery.data?.name}
+                </h1>
+                {characterQuery.data && (
+                  <span className="border-primary/40 text-primary rounded-none border px-2 py-0.5 text-xs font-medium tracking-wide">
+                    {CHARACTER_STATUS_LABELS[characterQuery.data.status]}
+                  </span>
+                )}
+              </div>
+              <p className="dossier-meta text-xs">
+                {characterQuery.data &&
+                  [
+                    `Nível ${characterQuery.data.level}`,
+                    characterQuery.data.race,
+                    characterQuery.data.class,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+              </p>
+              {characterQuery.data?.portraitUrl && (
+                <button
+                  type="button"
+                  onClick={() => updatePortraitMutation.mutate(null)}
+                  className="text-muted-foreground hover:text-destructive text-xs underline-offset-2 hover:underline"
+                >
+                  Remover foto
+                </button>
               )}
             </div>
-            <p className="dossier-meta text-xs">
-              {characterQuery.data &&
-                [
-                  `Nível ${characterQuery.data.level}`,
-                  characterQuery.data.race,
-                  characterQuery.data.class,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-            </p>
           </div>
         )}
       </div>
@@ -235,6 +303,9 @@ export function CharacterDetailPage() {
                 </form>
               )}
 
+              {activeTab === "status" && (
+                <CharacterAttributesSection characterId={characterId} />
+              )}
               {campaignId && activeTab === "notes" && (
                 <PlayerNotesSection characterId={characterId} campaignId={campaignId} />
               )}
