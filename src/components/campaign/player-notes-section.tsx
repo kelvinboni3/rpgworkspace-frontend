@@ -1,24 +1,19 @@
 import { useState } from "react";
-import { BookOpen, Compass, Loader2, Plus, TriangleAlert } from "lucide-react";
+import { Compass, Loader2, Plus, TriangleAlert } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DossierEntry } from "@/components/dossier/dossier-entry";
 import { PlayerNoteService, type PlayerNote } from "@/services/player-note-service";
 import { SessionService } from "@/services/session-service";
 import { extractErrorMessage } from "@/utils/api-error";
+import { formatDateOnly } from "@/utils/date";
 import { zodResolver } from "@/utils/form";
 
 const createPlayerNoteSchema = z.object({
@@ -86,6 +81,22 @@ export function PlayerNotesSection({
     const session = sessions.find((s) => s.id === sessionId);
     return session ? `#${session.number} — ${session.title}` : null;
   };
+
+  const effectiveDate = (note: PlayerNote) => {
+    const session = note.sessionId ? sessions.find((s) => s.id === note.sessionId) : undefined;
+    return session ? session.date : note.createdAt;
+  };
+
+  const displayDate = (note: PlayerNote) => {
+    const session = note.sessionId ? sessions.find((s) => s.id === note.sessionId) : undefined;
+    return session
+      ? formatDateOnly(session.date)
+      : new Date(note.createdAt).toLocaleDateString("pt-BR");
+  };
+
+  const diaryEntries = [...notes].sort(
+    (a, b) => new Date(effectiveDate(a)).getTime() - new Date(effectiveDate(b)).getTime(),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -187,37 +198,26 @@ export function PlayerNotesSection({
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {notes.map((note) => (
-            <PlayerNoteCard key={note.id} note={note} sessionLabel={sessionLabel(note.sessionId)} />
+        <div className="flex flex-col gap-3">
+          {diaryEntries.map((note, index) => (
+            <DossierEntry
+              key={note.id}
+              title={note.title}
+              defaultOpen={index === 0}
+              badge={
+                sessionLabel(note.sessionId) ? (
+                  <span className="border-border/60 dossier-meta border px-2 py-0.5 text-[11px]">
+                    {sessionLabel(note.sessionId)}
+                  </span>
+                ) : undefined
+              }
+              meta={displayDate(note)}
+            >
+              <p className="whitespace-pre-line text-sm">{note.content}</p>
+            </DossierEntry>
           ))}
         </div>
       )}
     </div>
-  );
-}
-
-function PlayerNoteCard({
-  note,
-  sessionLabel,
-}: {
-  note: PlayerNote;
-  sessionLabel: string | null;
-}) {
-  return (
-    <Card className="glass-panel">
-      <CardHeader>
-        <CardTitle className="line-clamp-1">{note.title}</CardTitle>
-        <CardDescription className="line-clamp-3 whitespace-pre-line">
-          {note.content}
-        </CardDescription>
-      </CardHeader>
-      {sessionLabel && (
-        <CardFooter className="text-muted-foreground flex items-center gap-1.5 text-xs">
-          <BookOpen className="size-3.5" />
-          {sessionLabel}
-        </CardFooter>
-      )}
-    </Card>
   );
 }

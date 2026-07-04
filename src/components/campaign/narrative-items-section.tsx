@@ -1,26 +1,19 @@
 import { useState } from "react";
-import { BookOpen, Compass, Loader2, Plus, Sparkles, TriangleAlert } from "lucide-react";
+import { Compass, Loader2, Plus, Sparkles, TriangleAlert } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DossierEntry } from "@/components/dossier/dossier-entry";
 import {
   NARRATIVE_ITEM_IMPORTANCE_LABELS,
   NarrativeItemImportance,
   NarrativeItemService,
-  type NarrativeItem,
   type NarrativeItemImportanceValue,
 } from "@/services/narrative-item-service";
 import { SessionService } from "@/services/session-service";
@@ -40,10 +33,10 @@ const createNarrativeItemSchema = z.object({
 type CreateNarrativeItemValues = z.infer<typeof createNarrativeItemSchema>;
 
 const IMPORTANCE_BADGE_CLASS: Record<NarrativeItemImportanceValue, string> = {
-  [NarrativeItemImportance.Low]: "bg-secondary text-secondary-foreground",
-  [NarrativeItemImportance.Medium]: "bg-primary/15 text-primary",
-  [NarrativeItemImportance.High]: "bg-accent/15 text-accent",
-  [NarrativeItemImportance.Critical]: "bg-destructive/15 text-destructive",
+  [NarrativeItemImportance.Low]: "border-border/60 text-muted-foreground",
+  [NarrativeItemImportance.Medium]: "border-primary/40 text-primary",
+  [NarrativeItemImportance.High]: "border-accent/40 text-accent",
+  [NarrativeItemImportance.Critical]: "border-destructive/40 text-destructive",
 };
 
 export function NarrativeItemsSection({
@@ -238,59 +231,45 @@ export function NarrativeItemsSection({
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
-            <NarrativeItemCard
+        <div className="flex flex-col gap-3">
+          {items.map((item, index) => (
+            <DossierEntry
               key={item.id}
-              item={item}
-              sessionLabel={sessionLabel(item.sessionId)}
-            />
+              title={item.name}
+              defaultOpen={index === 0}
+              badge={
+                <span
+                  className={cn(
+                    "rounded-none border px-2 py-0.5 text-[11px] tracking-wide",
+                    IMPORTANCE_BADGE_CLASS[item.importance],
+                  )}
+                >
+                  {NARRATIVE_ITEM_IMPORTANCE_LABELS[item.importance]}
+                </span>
+              }
+              meta={sessionLabel(item.sessionId) ?? undefined}
+            >
+              {item.origin && (
+                <p className="dossier-meta flex items-center gap-1.5 text-xs">
+                  <Sparkles className="size-3.5 shrink-0" />
+                  {item.origin}
+                </p>
+              )}
+              {item.description && (
+                <p className="whitespace-pre-line text-sm">{item.description}</p>
+              )}
+              {item.notes && (
+                <div>
+                  <h4 className="font-display text-primary/90 mb-1 text-xs tracking-wide uppercase">
+                    Notas
+                  </h4>
+                  <p className="whitespace-pre-line text-sm">{item.notes}</p>
+                </div>
+              )}
+            </DossierEntry>
           ))}
         </div>
       )}
     </div>
-  );
-}
-
-function NarrativeItemCard({
-  item,
-  sessionLabel,
-}: {
-  item: NarrativeItem;
-  sessionLabel: string | null;
-}) {
-  return (
-    <Card className="glass-panel">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-1">{item.name}</CardTitle>
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-              IMPORTANCE_BADGE_CLASS[item.importance],
-            )}
-          >
-            {NARRATIVE_ITEM_IMPORTANCE_LABELS[item.importance]}
-          </span>
-        </div>
-        {item.origin && (
-          <CardDescription className="flex items-center gap-1.5">
-            <Sparkles className="size-3.5 shrink-0" />
-            {item.origin}
-          </CardDescription>
-        )}
-        {item.description && (
-          <CardDescription className="line-clamp-3 whitespace-pre-line">
-            {item.description}
-          </CardDescription>
-        )}
-      </CardHeader>
-      {sessionLabel && (
-        <CardFooter className="text-muted-foreground flex items-center gap-1.5 text-xs">
-          <BookOpen className="size-3.5" />
-          {sessionLabel}
-        </CardFooter>
-      )}
-    </Card>
   );
 }
