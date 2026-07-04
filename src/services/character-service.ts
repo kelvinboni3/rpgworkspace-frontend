@@ -1,4 +1,6 @@
 import { apiClient } from "@/services/api-client";
+import type { EvaluationLevelValue, ImportantPersonTypeValue } from "@/services/important-person-service";
+import type { TheoryStatusValue } from "@/services/theory-service";
 
 export const CharacterStatus = {
   Active: 1,
@@ -52,7 +54,7 @@ export type CharacterDashboardTheory = {
   id: string;
   title: string;
   confidence: number;
-  status: number;
+  status: TheoryStatusValue;
 };
 
 export type CharacterDashboardOperation = {
@@ -64,10 +66,10 @@ export type CharacterDashboardOperation = {
 export type CharacterDashboardImportantPerson = {
   id: string;
   name: string;
-  type: number;
-  trustLevel: number;
-  riskLevel: number;
-  utilityLevel: number;
+  type: ImportantPersonTypeValue;
+  trustLevel: EvaluationLevelValue;
+  riskLevel: EvaluationLevelValue;
+  utilityLevel: EvaluationLevelValue;
 };
 
 export type CharacterDashboard = {

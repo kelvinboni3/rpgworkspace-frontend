@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { CharacterDashboardSummary } from "@/components/campaign/character-dashboard-summary";
+import { ImportantPeopleSection } from "@/components/campaign/important-people-section";
 import { NarrativeItemsSection } from "@/components/campaign/narrative-items-section";
 import { OperationsSection } from "@/components/campaign/operations-section";
 import { PlayerNotesSection } from "@/components/campaign/player-notes-section";
@@ -20,6 +21,7 @@ const TABS = [
   { key: "narrative-items", label: "Itens Narrativos" },
   { key: "theories", label: "Teorias" },
   { key: "operations", label: "Operações" },
+  { key: "important-people", label: "Pessoas" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -153,6 +155,9 @@ export function CharacterDetailPage() {
               )}
               {activeTab === "theories" && <TheoriesSection characterId={characterId} />}
               {activeTab === "operations" && <OperationsSection characterId={characterId} />}
+              {activeTab === "important-people" && (
+                <ImportantPeopleSection characterId={characterId} />
+              )}
             </>
           )}
         </>

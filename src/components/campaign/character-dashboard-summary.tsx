@@ -2,34 +2,9 @@ import type { LucideIcon } from "lucide-react";
 import { BookOpen, Lightbulb, Scroll, Target, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import type { CharacterDashboard } from "@/services/character-service";
+import { EVALUATION_LEVEL_LABELS, IMPORTANT_PERSON_TYPE_LABELS } from "@/services/important-person-service";
+import { THEORY_STATUS_LABELS } from "@/services/theory-service";
 import { cn } from "@/utils/cn";
-
-// Local display-only labels: the canonical Theory/ImportantPerson label
-// records live in their own service files (Phase 3/4), which don't exist
-// yet. This summary only reads these values, never writes them.
-const THEORY_STATUS_LABELS: Record<number, string> = {
-  1: "Ativa",
-  2: "Confirmada",
-  3: "Refutada",
-  4: "Arquivada",
-};
-
-const IMPORTANT_PERSON_TYPE_LABELS: Record<number, string> = {
-  1: "NPC",
-  2: "Personagem",
-  3: "Facção",
-  4: "Criatura",
-  5: "Organização",
-  6: "Outro",
-};
-
-const EVALUATION_LEVEL_LABELS: Record<number, string> = {
-  0: "Nenhum",
-  1: "Baixo",
-  2: "Médio",
-  3: "Alto",
-  4: "Crítico",
-};
 
 function StatTile({
   icon: Icon,
