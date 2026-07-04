@@ -1,18 +1,29 @@
+import { useState } from "react";
 import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { CharacterDashboardSummary } from "@/components/campaign/character-dashboard-summary";
+import { NarrativeItemsSection } from "@/components/campaign/narrative-items-section";
 import { PlayerNotesSection } from "@/components/campaign/player-notes-section";
 import { paths } from "@/routes/paths";
 import { CampaignService } from "@/services/campaign-service";
 import { CHARACTER_STATUS_LABELS, CharacterService } from "@/services/character-service";
 import { WorkspaceMemberService, WorkspaceRole } from "@/services/workspace-member-service";
 import { authStore } from "@/store/auth-store";
+import { cn } from "@/utils/cn";
 import { extractErrorMessage } from "@/utils/api-error";
+
+const TABS = [
+  { key: "notes", label: "Notas" },
+  { key: "narrative-items", label: "Itens Narrativos" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
 
 export function CharacterDetailPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const currentUserId = authStore.getUser()?.id;
+  const [activeTab, setActiveTab] = useState<TabKey>("notes");
 
   const characterQuery = useQuery({
     queryKey: ["characters", characterId],
@@ -111,8 +122,30 @@ export function CharacterDetailPage() {
               {dashboardQuery.data && (
                 <CharacterDashboardSummary dashboard={dashboardQuery.data} />
               )}
-              {campaignId && (
+
+              <div className="border-border/60 flex gap-1 border-b">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={cn(
+                      "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+                      activeTab === tab.key
+                        ? "border-primary text-foreground"
+                        : "text-muted-foreground hover:text-foreground border-transparent",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {campaignId && activeTab === "notes" && (
                 <PlayerNotesSection characterId={characterId} campaignId={campaignId} />
+              )}
+              {campaignId && activeTab === "narrative-items" && (
+                <NarrativeItemsSection characterId={characterId} campaignId={campaignId} />
               )}
             </>
           )}
