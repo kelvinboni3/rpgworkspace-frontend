@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDays, Compass, Loader2, Plus, TriangleAlert } from "lucide-react";
+import { Compass, Loader2, Plus, TriangleAlert } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -16,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DossierEntry } from "@/components/dossier/dossier-entry";
+import { DossierEvaluationGrid } from "@/components/dossier/dossier-evaluation-grid";
 import {
   EVALUATION_LEVEL_LABELS,
   EvaluationLevel,
@@ -26,7 +27,6 @@ import {
   type ImportantPerson,
   type ImportantPersonTypeValue,
 } from "@/services/important-person-service";
-import { cn } from "@/utils/cn";
 import { formatDateOnly } from "@/utils/date";
 import { extractErrorMessage } from "@/utils/api-error";
 import { zodResolver } from "@/utils/form";
@@ -44,14 +44,6 @@ const createImportantPersonSchema = z.object({
 });
 
 type CreateImportantPersonValues = z.infer<typeof createImportantPersonSchema>;
-
-const EVALUATION_BADGE_CLASS: Record<EvaluationLevelValue, string> = {
-  [EvaluationLevel.None]: "bg-secondary text-secondary-foreground",
-  [EvaluationLevel.Low]: "bg-secondary text-secondary-foreground",
-  [EvaluationLevel.Medium]: "bg-primary/15 text-primary",
-  [EvaluationLevel.High]: "bg-accent/15 text-accent",
-  [EvaluationLevel.Critical]: "bg-destructive/15 text-destructive",
-};
 
 export function ImportantPeopleSection({ characterId }: { characterId: string }) {
   const [isCreating, setIsCreating] = useState(false);
@@ -267,9 +259,9 @@ export function ImportantPeopleSection({ characterId }: { characterId: string })
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {people.map((person) => (
-            <ImportantPersonCard key={person.id} person={person} />
+        <div className="flex flex-col gap-3">
+          {people.map((person, index) => (
+            <ImportantPersonEntry key={person.id} person={person} defaultOpen={index === 0} />
           ))}
         </div>
       )}
@@ -277,54 +269,58 @@ export function ImportantPeopleSection({ characterId }: { characterId: string })
   );
 }
 
-function ImportantPersonCard({ person }: { person: ImportantPerson }) {
+function ImportantPersonEntry({
+  person,
+  defaultOpen,
+}: {
+  person: ImportantPerson;
+  defaultOpen: boolean;
+}) {
   return (
-    <Card className="glass-panel">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-1">{person.name}</CardTitle>
-          <span className="bg-secondary text-secondary-foreground shrink-0 rounded-full px-2 py-0.5 text-xs font-medium">
-            {IMPORTANT_PERSON_TYPE_LABELS[person.type]}
-          </span>
+    <DossierEntry
+      title={person.name}
+      defaultOpen={defaultOpen}
+      badge={
+        <span className="border-primary/40 text-primary rounded-none border px-2 py-0.5 text-[11px] tracking-wide">
+          {IMPORTANT_PERSON_TYPE_LABELS[person.type]}
+        </span>
+      }
+      meta={person.lastContactAt ? `Último contato: ${formatDateOnly(person.lastContactAt)}` : undefined}
+    >
+      <DossierEvaluationGrid
+        items={[
+          { label: "CONFIANÇA", value: EVALUATION_LEVEL_LABELS[person.trustLevel] },
+          { label: "RISCO", value: EVALUATION_LEVEL_LABELS[person.riskLevel] },
+          { label: "UTILIDADE", value: EVALUATION_LEVEL_LABELS[person.utilityLevel] },
+        ]}
+      />
+
+      {person.firstImpression && (
+        <div>
+          <h4 className="font-display text-primary/90 mb-1 text-xs uppercase tracking-wide">
+            Primeira impressão
+          </h4>
+          <p className="whitespace-pre-line text-sm">{person.firstImpression}</p>
         </div>
-        {person.firstImpression && (
-          <CardDescription className="line-clamp-2 whitespace-pre-line">
-            {person.firstImpression}
-          </CardDescription>
-        )}
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-medium",
-              EVALUATION_BADGE_CLASS[person.trustLevel],
-            )}
-          >
-            Confiança: {EVALUATION_LEVEL_LABELS[person.trustLevel]}
-          </span>
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-medium",
-              EVALUATION_BADGE_CLASS[person.riskLevel],
-            )}
-          >
-            Risco: {EVALUATION_LEVEL_LABELS[person.riskLevel]}
-          </span>
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-medium",
-              EVALUATION_BADGE_CLASS[person.utilityLevel],
-            )}
-          >
-            Utilidade: {EVALUATION_LEVEL_LABELS[person.utilityLevel]}
-          </span>
-        </div>
-      </CardHeader>
-      {person.lastContactAt && (
-        <CardFooter className="text-muted-foreground flex items-center gap-1.5 text-xs">
-          <CalendarDays className="size-3.5" />
-          Último contato: {formatDateOnly(person.lastContactAt)}
-        </CardFooter>
       )}
-    </Card>
+
+      {person.analysis && (
+        <div>
+          <h4 className="font-display text-primary/90 mb-1 text-xs uppercase tracking-wide">
+            Análise
+          </h4>
+          <p className="whitespace-pre-line text-sm">{person.analysis}</p>
+        </div>
+      )}
+
+      {person.notes && (
+        <div>
+          <h4 className="font-display text-primary/90 mb-1 text-xs uppercase tracking-wide">
+            Notas
+          </h4>
+          <p className="whitespace-pre-line text-sm">{person.notes}</p>
+        </div>
+      )}
+    </DossierEntry>
   );
 }
