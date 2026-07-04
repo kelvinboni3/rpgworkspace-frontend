@@ -4,7 +4,9 @@ import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { CharacterDashboardSummary } from "@/components/campaign/character-dashboard-summary";
 import { NarrativeItemsSection } from "@/components/campaign/narrative-items-section";
+import { OperationsSection } from "@/components/campaign/operations-section";
 import { PlayerNotesSection } from "@/components/campaign/player-notes-section";
+import { TheoriesSection } from "@/components/campaign/theories-section";
 import { paths } from "@/routes/paths";
 import { CampaignService } from "@/services/campaign-service";
 import { CHARACTER_STATUS_LABELS, CharacterService } from "@/services/character-service";
@@ -16,6 +18,8 @@ import { extractErrorMessage } from "@/utils/api-error";
 const TABS = [
   { key: "notes", label: "Notas" },
   { key: "narrative-items", label: "Itens Narrativos" },
+  { key: "theories", label: "Teorias" },
+  { key: "operations", label: "Operações" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -147,6 +151,8 @@ export function CharacterDetailPage() {
               {campaignId && activeTab === "narrative-items" && (
                 <NarrativeItemsSection characterId={characterId} campaignId={campaignId} />
               )}
+              {activeTab === "theories" && <TheoriesSection characterId={characterId} />}
+              {activeTab === "operations" && <OperationsSection characterId={characterId} />}
             </>
           )}
         </>
