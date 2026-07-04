@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { AppLayout } from "@/layouts/app-layout";
 import { AppHomePage } from "@/pages/app-home-page";
 import { CampaignDetailPage } from "@/pages/campaign-detail-page";
+import { CharacterDetailPage } from "@/pages/character-detail-page";
 import { LoginPage } from "@/pages/login-page";
 import { RegisterPage } from "@/pages/register-page";
 import { WorkspaceDetailPage } from "@/pages/workspace-detail-page";
@@ -34,6 +35,10 @@ export const router = createBrowserRouter([
           {
             path: "campaigns/:campaignId",
             element: <CampaignDetailPage />,
+          },
+          {
+            path: "characters/:characterId",
+            element: <CharacterDetailPage />,
           },
         ],
       },

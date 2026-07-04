@@ -112,6 +112,7 @@ export function CampaignDetailPage() {
           campaignId={campaignId}
           currentUserId={currentUserId}
           members={membersQuery.data ?? []}
+          isOwnerOrMaster={isOwnerOrMaster}
         />
       )}
       {activeTab === "sessions" && (

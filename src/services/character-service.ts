@@ -42,6 +42,50 @@ export type CreateCharacterRequest = {
 
 export type UpdateCharacterRequest = Omit<CreateCharacterRequest, "userId">;
 
+export type CharacterDashboardLastPlayerNote = {
+  id: string;
+  title: string;
+  createdAt: string;
+};
+
+export type CharacterDashboardTheory = {
+  id: string;
+  title: string;
+  confidence: number;
+  status: number;
+};
+
+export type CharacterDashboardOperation = {
+  id: string;
+  name: string;
+  status: number;
+};
+
+export type CharacterDashboardImportantPerson = {
+  id: string;
+  name: string;
+  type: number;
+  trustLevel: number;
+  riskLevel: number;
+  utilityLevel: number;
+};
+
+export type CharacterDashboard = {
+  characterId: string;
+  characterName: string;
+  campaignId: string;
+  campaignName: string;
+  lastPlayerNote: CharacterDashboardLastPlayerNote | null;
+  activeTheoriesCount: number;
+  activeOperationsCount: number;
+  importantPeopleCount: number;
+  narrativeItemsCount: number;
+  recentNotes: CharacterDashboardLastPlayerNote[];
+  activeTheories: CharacterDashboardTheory[];
+  activeOperations: CharacterDashboardOperation[];
+  importantPeopleHighlights: CharacterDashboardImportantPerson[];
+};
+
 export const CharacterService = {
   async getAllByCampaign(campaignId: string) {
     const response = await apiClient.get<Character[]>(`/campaigns/${campaignId}/characters`);
@@ -65,5 +109,12 @@ export const CharacterService = {
 
   async remove(id: string) {
     await apiClient.delete(`/characters/${id}`);
+  },
+
+  async getDashboard(characterId: string) {
+    const response = await apiClient.get<CharacterDashboard>(
+      `/characters/${characterId}/dashboard`,
+    );
+    return response.data;
   },
 };

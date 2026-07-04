@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Compass, Loader2, Plus, TriangleAlert, User } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
+import { Link } from "react-router";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { paths } from "@/routes/paths";
 import {
   CHARACTER_STATUS_LABELS,
   CharacterService,
@@ -49,10 +51,12 @@ export function CharactersSection({
   campaignId,
   currentUserId,
   members,
+  isOwnerOrMaster,
 }: {
   campaignId: string;
   currentUserId?: string;
   members: WorkspaceMember[];
+  isOwnerOrMaster: boolean;
 }) {
   const [isCreating, setIsCreating] = useState(false);
   const queryClient = useQueryClient();
@@ -231,6 +235,7 @@ export function CharactersSection({
               character={character}
               playerName={userName(character.userId)}
               isOwnCharacter={character.userId === currentUserId}
+              canOpen={isOwnerOrMaster || character.userId === currentUserId}
             />
           ))}
         </div>
@@ -243,15 +248,17 @@ function CharacterCard({
   character,
   playerName,
   isOwnCharacter,
+  canOpen,
 }: {
   character: Character;
   playerName: string;
   isOwnCharacter: boolean;
+  canOpen: boolean;
 }) {
   const subtitle = [character.race, character.class].filter(Boolean).join(" · ");
 
-  return (
-    <Card className="glass-panel">
+  const card = (
+    <Card className={cn("glass-panel", canOpen && "hover:border-primary/40 transition-colors")}>
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="line-clamp-1">{character.name}</CardTitle>
@@ -273,5 +280,13 @@ function CharacterCard({
         {isOwnCharacter ? "Seu personagem" : playerName}
       </CardFooter>
     </Card>
+  );
+
+  return canOpen ? (
+    <Link to={paths.character(character.id)} className="block">
+      {card}
+    </Link>
+  ) : (
+    card
   );
 }
