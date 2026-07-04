@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { ArrowLeft, Loader2, TriangleAlert } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  Lightbulb,
+  Loader2,
+  Scroll,
+  Target,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
 import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { CharacterDashboardSummary } from "@/components/campaign/character-dashboard-summary";
@@ -17,11 +26,11 @@ import { cn } from "@/utils/cn";
 import { extractErrorMessage } from "@/utils/api-error";
 
 const TABS = [
-  { key: "notes", label: "Notas" },
-  { key: "narrative-items", label: "Itens Narrativos" },
-  { key: "theories", label: "Teorias" },
-  { key: "operations", label: "Operações" },
-  { key: "important-people", label: "Pessoas" },
+  { key: "notes", label: "Notas", icon: BookOpen },
+  { key: "narrative-items", label: "Itens Narrativos", icon: Scroll },
+  { key: "theories", label: "Teorias", icon: Lightbulb },
+  { key: "operations", label: "Operações", icon: Target },
+  { key: "important-people", label: "Pessoas", icon: Users },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -70,7 +79,7 @@ export function CharacterDetailPage() {
   const isLoading = characterQuery.isLoading || campaignQuery.isLoading || membersQuery.isLoading;
 
   return (
-    <div className="animate-fade-in-up flex flex-1 flex-col gap-6">
+    <div className="dossier-theme animate-fade-in-up flex flex-1 flex-col gap-6">
       <div>
         {campaignId && (
           <Link
@@ -93,16 +102,19 @@ export function CharacterDetailPage() {
             {extractErrorMessage(characterQuery.error, "Não foi possível carregar este personagem.")}
           </div>
         ) : (
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-3xl font-bold">{characterQuery.data?.name}</h1>
+          <div className="dossier-frame glass-panel space-y-1 px-6 py-5">
+            <div className="dossier-eyebrow">Ficha · Dossiê Pessoal</div>
+            <div className="flex items-center gap-3">
+              <h1 className="font-display text-primary text-3xl font-bold">
+                {characterQuery.data?.name}
+              </h1>
               {characterQuery.data && (
-                <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs font-medium">
+                <span className="border-primary/40 text-primary rounded-none border px-2 py-0.5 text-xs font-medium tracking-wide">
                   {CHARACTER_STATUS_LABELS[characterQuery.data.status]}
                 </span>
               )}
             </div>
-            <p className="text-muted-foreground">
+            <p className="dossier-meta text-xs">
               {characterQuery.data &&
                 [
                   `Nível ${characterQuery.data.level}`,
@@ -129,22 +141,21 @@ export function CharacterDetailPage() {
                 <CharacterDashboardSummary dashboard={dashboardQuery.data} />
               )}
 
-              <div className="border-border/60 flex gap-1 border-b">
-                {TABS.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    className={cn(
-                      "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
-                      activeTab === tab.key
-                        ? "border-primary text-foreground"
-                        : "text-muted-foreground hover:text-foreground border-transparent",
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+              <div className="dossier-tabs">
+                {TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      className={cn("dossier-tab", activeTab === tab.key && "active")}
+                    >
+                      <Icon className="dossier-tab-icon size-3.5" />
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
 
               {campaignId && activeTab === "notes" && (
