@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierEntry } from "@/components/dossier/dossier-entry";
+import { DossierMarkdown } from "@/components/dossier/dossier-markdown";
 import {
   THEORY_STATUS_LABELS,
   TheoryService,
@@ -220,15 +221,13 @@ export function TheoriesSection({ characterId }: { characterId: string }) {
               }
               meta={`Confiança: ${theory.confidence}%`}
             >
-              {theory.description && (
-                <p className="whitespace-pre-line text-sm">{theory.description}</p>
-              )}
+              {theory.description && <DossierMarkdown text={theory.description} />}
               {theory.evidence && (
                 <div>
                   <h4 className="font-display text-primary/90 mb-1 text-xs tracking-wide uppercase">
                     Evidências
                   </h4>
-                  <p className="whitespace-pre-line text-sm">{theory.evidence}</p>
+                  <DossierMarkdown text={theory.evidence} />
                 </div>
               )}
             </DossierEntry>

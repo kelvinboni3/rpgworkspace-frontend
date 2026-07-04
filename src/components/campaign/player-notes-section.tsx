@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierEntry } from "@/components/dossier/dossier-entry";
+import { DossierMarkdown } from "@/components/dossier/dossier-markdown";
 import { PlayerNoteService, type PlayerNote } from "@/services/player-note-service";
 import { SessionService } from "@/services/session-service";
 import { extractErrorMessage } from "@/utils/api-error";
@@ -213,7 +214,7 @@ export function PlayerNotesSection({
               }
               meta={displayDate(note)}
             >
-              <p className="whitespace-pre-line text-sm">{note.content}</p>
+              <DossierMarkdown text={note.content} />
             </DossierEntry>
           ))}
         </div>

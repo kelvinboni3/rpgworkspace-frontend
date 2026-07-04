@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierEntry } from "@/components/dossier/dossier-entry";
+import { DossierMarkdown } from "@/components/dossier/dossier-markdown";
 import {
   OPERATION_STATUS_LABELS,
   OperationService,
@@ -280,7 +281,9 @@ function OpRow({
       <Icon className="dossier-icon-accent mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="dossier-meta text-[10px] tracking-widest uppercase">{label}</div>
-        <p className="mt-0.5 text-sm whitespace-pre-line">{text}</p>
+        <div className="mt-0.5">
+          <DossierMarkdown text={text} />
+        </div>
       </div>
     </div>
   );

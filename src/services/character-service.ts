@@ -29,8 +29,19 @@ export type Character = {
   level: number;
   status: CharacterStatusValue;
   portraitUrl: string | null;
+  hpCurrent: number | null;
+  hpMax: number | null;
+  mpCurrent: number | null;
+  mpMax: number | null;
   createdAt: string;
   updatedAt: string | null;
+};
+
+export type UpdateCharacterVitalsRequest = {
+  hpCurrent: number | null;
+  hpMax: number | null;
+  mpCurrent: number | null;
+  mpMax: number | null;
 };
 
 export type CreateCharacterRequest = {
@@ -116,6 +127,11 @@ export const CharacterService = {
 
   async updatePortrait(id: string, portraitUrl: string | null) {
     const response = await apiClient.put<Character>(`/characters/${id}/portrait`, { portraitUrl });
+    return response.data;
+  },
+
+  async updateVitals(id: string, data: UpdateCharacterVitalsRequest) {
+    const response = await apiClient.put<Character>(`/characters/${id}/vitals`, data);
     return response.data;
   },
 

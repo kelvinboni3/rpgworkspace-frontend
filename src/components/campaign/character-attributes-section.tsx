@@ -135,7 +135,7 @@ export function CharacterAttributesSection({ characterId }: { characterId: strin
           </CardHeader>
         </Card>
       ) : (
-        <div className="dossier-frame glass-panel px-5 py-2">
+        <div className="dossier-frame glass-panel grid grid-cols-1 gap-x-8 px-5 py-2 sm:grid-cols-2">
           {attributes.map((attribute) =>
             editingId === attribute.id ? (
               <form

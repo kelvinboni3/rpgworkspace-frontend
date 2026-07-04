@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierEntry } from "@/components/dossier/dossier-entry";
+import { DossierMarkdown } from "@/components/dossier/dossier-markdown";
 import {
   CharacterTabEntryService,
   type CharacterTabEntry,
@@ -298,7 +299,7 @@ export function CharacterTabSection({
                 </form>
               ) : (
                 <>
-                  <p className="whitespace-pre-line text-sm">{entry.content}</p>
+                  <DossierMarkdown text={entry.content} />
                   <div className="flex justify-end gap-2 pt-2">
                     <Button variant="ghost" size="sm" onClick={() => openEditForm(entry)}>
                       <Pencil className="size-3.5" />

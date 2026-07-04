@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierEntry } from "@/components/dossier/dossier-entry";
 import { DossierEvaluationGrid } from "@/components/dossier/dossier-evaluation-grid";
+import { DossierMarkdown } from "@/components/dossier/dossier-markdown";
 import {
   EVALUATION_LEVEL_LABELS,
   EvaluationLevel,
@@ -300,7 +301,7 @@ function ImportantPersonEntry({
           <h4 className="font-display text-primary/90 mb-1 text-xs uppercase tracking-wide">
             Primeira impressão
           </h4>
-          <p className="whitespace-pre-line text-sm">{person.firstImpression}</p>
+          <DossierMarkdown text={person.firstImpression} />
         </div>
       )}
 
@@ -309,7 +310,7 @@ function ImportantPersonEntry({
           <h4 className="font-display text-primary/90 mb-1 text-xs uppercase tracking-wide">
             Análise
           </h4>
-          <p className="whitespace-pre-line text-sm">{person.analysis}</p>
+          <DossierMarkdown text={person.analysis} />
         </div>
       )}
 
@@ -318,7 +319,7 @@ function ImportantPersonEntry({
           <h4 className="font-display text-primary/90 mb-1 text-xs uppercase tracking-wide">
             Notas
           </h4>
-          <p className="whitespace-pre-line text-sm">{person.notes}</p>
+          <DossierMarkdown text={person.notes} />
         </div>
       )}
     </DossierEntry>

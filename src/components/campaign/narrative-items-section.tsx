@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierEntry } from "@/components/dossier/dossier-entry";
+import { DossierMarkdown } from "@/components/dossier/dossier-markdown";
 import {
   NARRATIVE_ITEM_IMPORTANCE_LABELS,
   NarrativeItemImportance,
@@ -255,15 +256,13 @@ export function NarrativeItemsSection({
                   {item.origin}
                 </p>
               )}
-              {item.description && (
-                <p className="whitespace-pre-line text-sm">{item.description}</p>
-              )}
+              {item.description && <DossierMarkdown text={item.description} />}
               {item.notes && (
                 <div>
                   <h4 className="font-display text-primary/90 mb-1 text-xs tracking-wide uppercase">
                     Notas
                   </h4>
-                  <p className="whitespace-pre-line text-sm">{item.notes}</p>
+                  <DossierMarkdown text={item.notes} />
                 </div>
               )}
             </DossierEntry>
