@@ -1,26 +1,19 @@
 import { useState } from "react";
-import { Compass, Gauge, Loader2, Plus, TriangleAlert } from "lucide-react";
+import { Compass, Loader2, Plus, TriangleAlert } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DossierEntry } from "@/components/dossier/dossier-entry";
 import {
   THEORY_STATUS_LABELS,
   TheoryService,
   TheoryStatus,
-  type Theory,
   type TheoryStatusValue,
 } from "@/services/theory-service";
 import { extractErrorMessage } from "@/utils/api-error";
@@ -38,10 +31,10 @@ const createTheorySchema = z.object({
 type CreateTheoryValues = z.infer<typeof createTheorySchema>;
 
 const STATUS_BADGE_CLASS: Record<TheoryStatusValue, string> = {
-  [TheoryStatus.Active]: "bg-primary/15 text-primary",
-  [TheoryStatus.Confirmed]: "bg-accent/15 text-accent",
-  [TheoryStatus.Refuted]: "bg-destructive/15 text-destructive",
-  [TheoryStatus.Archived]: "bg-secondary text-secondary-foreground",
+  [TheoryStatus.Active]: "border-primary/40 text-primary",
+  [TheoryStatus.Confirmed]: "border-accent/40 text-accent",
+  [TheoryStatus.Refuted]: "border-destructive/40 text-destructive",
+  [TheoryStatus.Archived]: "border-border/60 text-muted-foreground",
 };
 
 export function TheoriesSection({ characterId }: { characterId: string }) {
@@ -209,41 +202,39 @@ export function TheoriesSection({ characterId }: { characterId: string }) {
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {theories.map((theory) => (
-            <TheoryCard key={theory.id} theory={theory} />
+        <div className="flex flex-col gap-3">
+          {theories.map((theory, index) => (
+            <DossierEntry
+              key={theory.id}
+              title={theory.title}
+              defaultOpen={index === 0}
+              badge={
+                <span
+                  className={cn(
+                    "rounded-none border px-2 py-0.5 text-[11px] tracking-wide",
+                    STATUS_BADGE_CLASS[theory.status],
+                  )}
+                >
+                  {THEORY_STATUS_LABELS[theory.status]}
+                </span>
+              }
+              meta={`Confiança: ${theory.confidence}%`}
+            >
+              {theory.description && (
+                <p className="whitespace-pre-line text-sm">{theory.description}</p>
+              )}
+              {theory.evidence && (
+                <div>
+                  <h4 className="font-display text-primary/90 mb-1 text-xs tracking-wide uppercase">
+                    Evidências
+                  </h4>
+                  <p className="whitespace-pre-line text-sm">{theory.evidence}</p>
+                </div>
+              )}
+            </DossierEntry>
           ))}
         </div>
       )}
     </div>
-  );
-}
-
-function TheoryCard({ theory }: { theory: Theory }) {
-  return (
-    <Card className="glass-panel">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-1">{theory.title}</CardTitle>
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-              STATUS_BADGE_CLASS[theory.status],
-            )}
-          >
-            {THEORY_STATUS_LABELS[theory.status]}
-          </span>
-        </div>
-        {theory.description && (
-          <CardDescription className="line-clamp-3 whitespace-pre-line">
-            {theory.description}
-          </CardDescription>
-        )}
-      </CardHeader>
-      <CardFooter className="text-muted-foreground flex items-center gap-1.5 text-xs">
-        <Gauge className="size-3.5" />
-        Confiança: {theory.confidence}%
-      </CardFooter>
-    </Card>
   );
 }

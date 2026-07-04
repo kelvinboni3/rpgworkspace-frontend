@@ -142,6 +142,10 @@
     color: hsl(var(--dossier-violet));
   }
 
+  .dossier-icon-accent {
+    color: hsl(var(--dossier-violet));
+  }
+
   /* Decorated corner brackets, same trick as the reference dossier's
      .panel::before/::after — two opposing L-shaped corners in gold. */
   .dossier-frame {

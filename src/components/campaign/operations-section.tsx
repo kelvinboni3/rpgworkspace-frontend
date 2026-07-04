@@ -1,21 +1,25 @@
 import { useState } from "react";
-import { Compass, Loader2, Plus, Target, TriangleAlert } from "lucide-react";
+import {
+  Compass,
+  Flag,
+  Loader2,
+  MapPinned,
+  Plus,
+  ShieldAlert,
+  Sparkles,
+  Target,
+  TriangleAlert,
+} from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DossierEntry } from "@/components/dossier/dossier-entry";
 import {
   OPERATION_STATUS_LABELS,
   OperationService,
@@ -40,13 +44,15 @@ const createOperationSchema = z.object({
 type CreateOperationValues = z.infer<typeof createOperationSchema>;
 
 const STATUS_BADGE_CLASS: Record<OperationStatusValue, string> = {
-  [OperationStatus.Planned]: "bg-secondary text-secondary-foreground",
-  [OperationStatus.InProgress]: "bg-primary/15 text-primary",
-  [OperationStatus.Completed]: "bg-accent/15 text-accent",
-  [OperationStatus.Failed]: "bg-destructive/15 text-destructive",
-  [OperationStatus.Canceled]: "bg-destructive/15 text-destructive",
-  [OperationStatus.Archived]: "bg-secondary text-secondary-foreground",
+  [OperationStatus.Planned]: "border-border/60 text-muted-foreground",
+  [OperationStatus.InProgress]: "border-primary/40 text-primary",
+  [OperationStatus.Completed]: "border-accent/40 text-accent",
+  [OperationStatus.Failed]: "border-destructive/40 text-destructive",
+  [OperationStatus.Canceled]: "border-destructive/40 text-destructive",
+  [OperationStatus.Archived]: "border-border/60 text-muted-foreground",
 };
+
+const ACTIVE_STATUSES: OperationStatusValue[] = [OperationStatus.Planned, OperationStatus.InProgress];
 
 export function OperationsSection({ characterId }: { characterId: string }) {
   const [isCreating, setIsCreating] = useState(false);
@@ -58,6 +64,8 @@ export function OperationsSection({ characterId }: { characterId: string }) {
   });
 
   const operations = operationsQuery.data ?? [];
+  const activeOperations = operations.filter((op) => ACTIVE_STATUSES.includes(op.status));
+  const archivedOperations = operations.filter((op) => !ACTIVE_STATUSES.includes(op.status));
 
   const {
     register,
@@ -234,43 +242,79 @@ export function OperationsSection({ characterId }: { characterId: string }) {
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {operations.map((operation) => (
-            <OperationCard key={operation.id} operation={operation} />
-          ))}
+        <div className="flex flex-col gap-6">
+          {activeOperations.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <div className="dossier-eyebrow">Ativas</div>
+              {activeOperations.map((operation, index) => (
+                <OperationEntry key={operation.id} operation={operation} defaultOpen={index === 0} />
+              ))}
+            </div>
+          )}
+
+          {archivedOperations.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <div className="dossier-eyebrow">Arquivadas</div>
+              {archivedOperations.map((operation) => (
+                <OperationEntry key={operation.id} operation={operation} defaultOpen={false} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function OperationCard({ operation }: { operation: Operation }) {
+function OpRow({
+  icon: Icon,
+  label,
+  text,
+}: {
+  icon: typeof Flag;
+  label: string;
+  text: string;
+}) {
   return (
-    <Card className="glass-panel">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="line-clamp-1">{operation.name}</CardTitle>
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-              STATUS_BADGE_CLASS[operation.status],
-            )}
-          >
-            {OPERATION_STATUS_LABELS[operation.status]}
-          </span>
-        </div>
-        {operation.objective && (
-          <CardDescription className="line-clamp-3 whitespace-pre-line">
-            {operation.objective}
-          </CardDescription>
-        )}
-      </CardHeader>
-      {operation.result && (
-        <CardFooter className="text-muted-foreground flex items-start gap-1.5 text-xs">
-          <Target className="mt-0.5 size-3.5 shrink-0" />
-          <span className="line-clamp-2">{operation.result}</span>
-        </CardFooter>
+    <div className="flex items-start gap-3">
+      <Icon className="dossier-icon-accent mt-0.5 size-4 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="dossier-meta text-[10px] tracking-widest uppercase">{label}</div>
+        <p className="mt-0.5 text-sm whitespace-pre-line">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function OperationEntry({
+  operation,
+  defaultOpen,
+}: {
+  operation: Operation;
+  defaultOpen: boolean;
+}) {
+  return (
+    <DossierEntry
+      title={operation.name}
+      defaultOpen={defaultOpen}
+      badge={
+        <span
+          className={cn(
+            "rounded-none border px-2 py-0.5 text-[11px] tracking-wide",
+            STATUS_BADGE_CLASS[operation.status],
+          )}
+        >
+          {OPERATION_STATUS_LABELS[operation.status]}
+        </span>
+      }
+    >
+      {operation.objective && <OpRow icon={Flag} label="Objetivo" text={operation.objective} />}
+      {operation.plan && <OpRow icon={MapPinned} label="Plano" text={operation.plan} />}
+      {operation.requiredResources && (
+        <OpRow icon={Sparkles} label="Recursos necessários" text={operation.requiredResources} />
       )}
-    </Card>
+      {operation.risks && <OpRow icon={ShieldAlert} label="Riscos" text={operation.risks} />}
+      {operation.result && <OpRow icon={Target} label="Resultado" text={operation.result} />}
+    </DossierEntry>
   );
 }
