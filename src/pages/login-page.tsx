@@ -24,9 +24,8 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo =
-    (location.state as { from?: { pathname: string } } | null)?.from
-      ?.pathname ?? paths.home;
+  const explicitRedirect = (location.state as { from?: { pathname: string } } | null)?.from
+    ?.pathname;
 
   const {
     register,
@@ -41,7 +40,11 @@ export function LoginPage() {
         id: data.userId,
         name: data.name,
         email: data.email,
+        defaultCharacterId: data.defaultCharacterId,
       });
+      const redirectTo =
+        explicitRedirect ??
+        (data.defaultCharacterId ? paths.character(data.defaultCharacterId) : paths.home);
       navigate(redirectTo, { replace: true });
     },
   });

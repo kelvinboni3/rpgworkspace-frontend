@@ -1,11 +1,21 @@
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Link2 } from "lucide-react";
 
-export function DossierMarkdown({ text }: { text: string }) {
+const BLOCK_LINK_PREFIX = "block:";
+
+export function DossierMarkdown({
+  text,
+  onNavigateToBlock,
+}: {
+  text: string;
+  onNavigateToBlock?: (blockId: string) => void;
+}) {
   return (
     <div className="text-sm leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={(url) => (url.startsWith(BLOCK_LINK_PREFIX) ? url : defaultUrlTransform(url))}
         components={{
           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
           strong: ({ children }) => (
@@ -35,16 +45,36 @@ export function DossierMarkdown({ text }: { text: string }) {
             </h4>
           ),
           blockquote: ({ children }) => <div className="dossier-quote">{children}</div>,
-          a: ({ children, href }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary underline underline-offset-2"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ children, href }) => {
+            if (href?.startsWith(BLOCK_LINK_PREFIX)) {
+              const blockId = href.slice(BLOCK_LINK_PREFIX.length);
+              return (
+                <button
+                  type="button"
+                  onClick={() => onNavigateToBlock?.(blockId)}
+                  className="inline-flex items-center gap-1 border px-1.5 py-0 align-baseline font-semibold transition-colors"
+                  style={{
+                    color: "hsl(var(--dossier-violet))",
+                    borderColor: "hsl(var(--dossier-violet) / 0.4)",
+                    background: "hsl(var(--dossier-violet) / 0.1)",
+                  }}
+                >
+                  <Link2 className="size-3" />
+                  {children}
+                </button>
+              );
+            }
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary underline underline-offset-2"
+              >
+                {children}
+              </a>
+            );
+          },
           hr: () => <hr className="border-border/60 my-3" />,
           code: ({ children }) => (
             <code className="bg-background/60 rounded px-1 py-0.5 font-mono text-xs">

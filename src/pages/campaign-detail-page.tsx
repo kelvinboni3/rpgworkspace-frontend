@@ -89,43 +89,56 @@ export function CampaignDetailPage() {
         )}
       </div>
 
-      <div className="border-border/60 flex gap-1 border-b">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
-              activeTab === tab.key
-                ? "border-primary text-foreground"
-                : "text-muted-foreground hover:text-foreground border-transparent",
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {isOwnerOrMaster && (
+        <div className="border-border/60 flex gap-1 border-b">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+                activeTab === tab.key
+                  ? "border-primary text-foreground"
+                  : "text-muted-foreground hover:text-foreground border-transparent",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {activeTab === "characters" && (
+      {isOwnerOrMaster ? (
+        <>
+          {activeTab === "characters" && (
+            <CharactersSection
+              campaignId={campaignId}
+              currentUserId={currentUserId}
+              members={membersQuery.data ?? []}
+              isOwnerOrMaster={isOwnerOrMaster}
+            />
+          )}
+          {activeTab === "sessions" && (
+            <SessionsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
+          )}
+          {activeTab === "npcs" && (
+            <NpcsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
+          )}
+          {activeTab === "locations" && (
+            <LocationsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
+          )}
+          {activeTab === "quests" && (
+            <QuestsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
+          )}
+        </>
+      ) : (
         <CharactersSection
           campaignId={campaignId}
           currentUserId={currentUserId}
           members={membersQuery.data ?? []}
           isOwnerOrMaster={isOwnerOrMaster}
         />
-      )}
-      {activeTab === "sessions" && (
-        <SessionsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
-      )}
-      {activeTab === "npcs" && (
-        <NpcsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
-      )}
-      {activeTab === "locations" && (
-        <LocationsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
-      )}
-      {activeTab === "quests" && (
-        <QuestsSection campaignId={campaignId} isOwnerOrMaster={isOwnerOrMaster} />
       )}
     </div>
   );

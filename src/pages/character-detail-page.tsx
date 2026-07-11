@@ -1,41 +1,33 @@
 import { useRef, useState } from "react";
 import {
   ArrowLeft,
-  BookOpen,
   Camera,
-  Lightbulb,
   Loader2,
   NotebookTabs,
   Plus,
-  Scroll,
-  Sparkles,
-  Target,
   TriangleAlert,
   UserRound,
-  Users,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Link, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { Label } from "@/components/ui/label";
-import { CharacterAttributesSection } from "@/components/campaign/character-attributes-section";
 import { CharacterDashboardSummary } from "@/components/campaign/character-dashboard-summary";
 import { CharacterTabSection } from "@/components/campaign/character-tab-section";
-import { ImportantPeopleSection } from "@/components/campaign/important-people-section";
-import { NarrativeItemsSection } from "@/components/campaign/narrative-items-section";
-import { OperationsSection } from "@/components/campaign/operations-section";
-import { PlayerNotesSection } from "@/components/campaign/player-notes-section";
-import { TheoriesSection } from "@/components/campaign/theories-section";
+import { NoteStructuringWidget } from "@/components/campaign/note-structuring-widget";
 import { paths } from "@/routes/paths";
 import { CampaignService } from "@/services/campaign-service";
 import { CHARACTER_STATUS_LABELS, CharacterService } from "@/services/character-service";
 import { CharacterTabService } from "@/services/character-tab-service";
+import { CharacterTabBlockService } from "@/services/character-tab-block-service";
 import { WorkspaceMemberService, WorkspaceRole } from "@/services/workspace-member-service";
 import { authStore } from "@/store/auth-store";
+import { useAuthenticatedMedia } from "@/hooks/use-authenticated-media";
 import { cn } from "@/utils/cn";
-import { resizeImageToDataUrl } from "@/utils/image";
+import { resizeImageToBlob } from "@/utils/image";
 import { extractErrorMessage } from "@/utils/api-error";
 
 type VitalsFormValues = {
@@ -50,22 +42,21 @@ function vitalPercent(current: number | null, max: number | null) {
   return Math.min(100, Math.max(0, ((current ?? 0) / max) * 100));
 }
 
-const TABS = [
-  { key: "status", label: "Status", icon: Sparkles },
-  { key: "notes", label: "Notas", icon: BookOpen },
-  { key: "narrative-items", label: "Itens Narrativos", icon: Scroll },
-  { key: "theories", label: "Teorias", icon: Lightbulb },
-  { key: "operations", label: "Operações", icon: Target },
-  { key: "important-people", label: "Pessoas", icon: Users },
-] as const;
-
 export function CharacterDetailPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const currentUserId = authStore.getUser()?.id;
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("status");
+  const [activeTab, setActiveTab] = useState<string | null>(null);
   const [isAddingTab, setIsAddingTab] = useState(false);
+  const [focusBlockId, setFocusBlockId] = useState<string | null>(null);
   const portraitInputRef = useRef<HTMLInputElement>(null);
+  const [isPortraitLightboxOpen, setIsPortraitLightboxOpen] = useState(false);
+
+  const handleNavigateToBlock = async (blockId: string) => {
+    const block = await CharacterTabBlockService.getById(blockId);
+    setActiveTab(block.characterTabId);
+    setFocusBlockId(blockId);
+  };
 
   const characterQuery = useQuery({
     queryKey: ["characters", characterId],
@@ -74,6 +65,7 @@ export function CharacterDetailPage() {
   });
 
   const campaignId = characterQuery.data?.campaignId;
+  const portraitBlobUrl = useAuthenticatedMedia(characterQuery.data?.portraitUrl);
 
   const campaignQuery = useQuery({
     queryKey: ["campaigns", campaignId],
@@ -107,7 +99,8 @@ export function CharacterDetailPage() {
     enabled: Boolean(characterId) && canAccessJournal,
   });
 
-  const customTabs = tabsQuery.data ?? [];
+  const tabs = tabsQuery.data ?? [];
+  const effectiveActiveTab = activeTab ?? tabs[0]?.id ?? null;
 
   const {
     register: registerNewTab,
@@ -129,9 +122,15 @@ export function CharacterDetailPage() {
     setIsAddingTab(true);
   };
 
-  const updatePortraitMutation = useMutation({
-    mutationFn: (portraitUrl: string | null) =>
-      CharacterService.updatePortrait(characterId!, portraitUrl),
+  const uploadPortraitMutation = useMutation({
+    mutationFn: (blob: Blob) => CharacterService.uploadPortrait(characterId!, blob),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["characters", characterId] });
+    },
+  });
+
+  const removePortraitMutation = useMutation({
+    mutationFn: () => CharacterService.removePortrait(characterId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["characters", characterId] });
     },
@@ -142,8 +141,8 @@ export function CharacterDetailPage() {
     event.target.value = "";
     if (!file) return;
 
-    const dataUrl = await resizeImageToDataUrl(file);
-    updatePortraitMutation.mutate(dataUrl);
+    const blob = await resizeImageToBlob(file);
+    uploadPortraitMutation.mutate(blob);
   };
 
   const [isEditingVitals, setIsEditingVitals] = useState(false);
@@ -210,31 +209,52 @@ export function CharacterDetailPage() {
               className="hidden"
               onChange={handlePortraitFileSelected}
             />
-            <button
-              type="button"
-              onClick={() => portraitInputRef.current?.click()}
-              className="border-border/60 bg-background/40 group relative size-20 shrink-0 overflow-hidden border"
-              title="Alterar retrato"
-            >
-              {characterQuery.data?.portraitUrl ? (
-                <img
-                  src={characterQuery.data.portraitUrl}
-                  alt="Retrato do personagem"
-                  className="size-full object-cover"
-                />
+            <div className="border-border/60 bg-background/40 group relative size-20 shrink-0 overflow-hidden border">
+              {characterQuery.data?.portraitUrl && portraitBlobUrl ? (
+                <button
+                  type="button"
+                  onClick={() => setIsPortraitLightboxOpen(true)}
+                  className="block size-full cursor-zoom-in"
+                  title="Ver em tela cheia"
+                >
+                  <img
+                    src={portraitBlobUrl}
+                    alt="Retrato do personagem"
+                    className="size-full object-cover"
+                  />
+                </button>
               ) : (
-                <div className="text-muted-foreground flex size-full items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => portraitInputRef.current?.click()}
+                  className="text-muted-foreground flex size-full items-center justify-center"
+                  title="Alterar retrato"
+                >
                   <UserRound className="size-8" />
-                </div>
+                </button>
               )}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
-                {updatePortraitMutation.isPending ? (
-                  <Loader2 className="size-5 animate-spin text-white" />
-                ) : (
-                  <Camera className="size-5 text-white" />
-                )}
-              </div>
-            </button>
+              {characterQuery.data?.portraitUrl && portraitBlobUrl && (
+                <button
+                  type="button"
+                  onClick={() => portraitInputRef.current?.click()}
+                  title="Alterar retrato"
+                  className="absolute right-1 bottom-1 flex size-6 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  {uploadPortraitMutation.isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Camera className="size-3.5" />
+                  )}
+                </button>
+              )}
+            </div>
+            {isPortraitLightboxOpen && portraitBlobUrl && (
+              <ImageLightbox
+                src={portraitBlobUrl}
+                alt="Retrato do personagem"
+                onClose={() => setIsPortraitLightboxOpen(false)}
+              />
+            )}
 
             <div className="min-w-0 flex-1 space-y-1">
               <div className="dossier-eyebrow">Ficha · Dossiê Pessoal</div>
@@ -261,7 +281,7 @@ export function CharacterDetailPage() {
               {characterQuery.data?.portraitUrl && (
                 <button
                   type="button"
-                  onClick={() => updatePortraitMutation.mutate(null)}
+                  onClick={() => removePortraitMutation.mutate()}
                   className="text-muted-foreground hover:text-destructive text-xs underline-offset-2 hover:underline"
                 >
                   Remover foto
@@ -383,94 +403,86 @@ export function CharacterDetailPage() {
                 <CharacterDashboardSummary dashboard={dashboardQuery.data} />
               )}
 
-              <div className="dossier-tabs">
-                {TABS.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      onClick={() => setActiveTab(tab.key)}
-                      className={cn("dossier-tab", activeTab === tab.key && "active")}
-                    >
-                      <Icon className="dossier-tab-icon size-3.5" />
-                      {tab.label}
+              {tabsQuery.isLoading ? (
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                  <Loader2 className="size-4 animate-spin" />
+                  Carregando abas...
+                </div>
+              ) : (
+                <>
+                  <div className="dossier-tabs">
+                    {tabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn("dossier-tab", effectiveActiveTab === tab.id && "active")}
+                      >
+                        <NotebookTabs className="dossier-tab-icon size-3.5" />
+                        {tab.name}
+                      </button>
+                    ))}
+                    <button type="button" onClick={openAddTabForm} className="dossier-tab">
+                      <Plus className="dossier-tab-icon size-3.5" />
+                      Nova aba
                     </button>
-                  );
-                })}
-                {customTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cn("dossier-tab", activeTab === tab.id && "active")}
-                  >
-                    <NotebookTabs className="dossier-tab-icon size-3.5" />
-                    {tab.name}
-                  </button>
-                ))}
-                <button type="button" onClick={openAddTabForm} className="dossier-tab">
-                  <Plus className="dossier-tab-icon size-3.5" />
-                  Nova aba
-                </button>
-              </div>
-
-              {isAddingTab && (
-                <form
-                  onSubmit={handleSubmitNewTab((values) => createTabMutation.mutate(values.name))}
-                  noValidate
-                  className="flex items-end gap-2"
-                >
-                  <div className="max-w-xs flex-1 space-y-2">
-                    <Input
-                      placeholder="Nome da nova aba (ex.: Persona, Quarto...)"
-                      {...registerNewTab("name", { required: true, maxLength: 100 })}
-                    />
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setIsAddingTab(false)}
-                    disabled={createTabMutation.isPending}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={createTabMutation.isPending}>
-                    {createTabMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                    Criar aba
-                  </Button>
-                </form>
-              )}
 
-              {activeTab === "status" && (
-                <CharacterAttributesSection characterId={characterId} />
-              )}
-              {campaignId && activeTab === "notes" && (
-                <PlayerNotesSection characterId={characterId} campaignId={campaignId} />
-              )}
-              {campaignId && activeTab === "narrative-items" && (
-                <NarrativeItemsSection characterId={characterId} campaignId={campaignId} />
-              )}
-              {activeTab === "theories" && <TheoriesSection characterId={characterId} />}
-              {activeTab === "operations" && <OperationsSection characterId={characterId} />}
-              {activeTab === "important-people" && (
-                <ImportantPeopleSection characterId={characterId} />
-              )}
-              {customTabs.map(
-                (tab) =>
-                  activeTab === tab.id && (
-                    <CharacterTabSection
-                      key={tab.id}
-                      tabId={tab.id}
-                      tabName={tab.name}
-                      characterId={characterId}
-                      onTabDeleted={() => setActiveTab("notes")}
-                    />
-                  ),
+                  {isAddingTab && (
+                    <form
+                      onSubmit={handleSubmitNewTab((values) => createTabMutation.mutate(values.name))}
+                      noValidate
+                      className="flex items-end gap-2"
+                    >
+                      <div className="max-w-xs flex-1 space-y-2">
+                        <Input
+                          placeholder="Nome da nova aba (ex.: Persona, Quarto...)"
+                          {...registerNewTab("name", { required: true, maxLength: 100 })}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setIsAddingTab(false)}
+                        disabled={createTabMutation.isPending}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={createTabMutation.isPending}>
+                        {createTabMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                        Criar aba
+                      </Button>
+                    </form>
+                  )}
+
+                  {tabs.map(
+                    (tab) =>
+                      effectiveActiveTab === tab.id && (
+                        <CharacterTabSection
+                          key={tab.id}
+                          tabId={tab.id}
+                          tabName={tab.name}
+                          characterId={characterId}
+                          onTabDeleted={() => setActiveTab(null)}
+                          onNavigateToBlock={handleNavigateToBlock}
+                          focusBlockId={focusBlockId}
+                          onFocusHandled={() => setFocusBlockId(null)}
+                        />
+                      ),
+                  )}
+                </>
               )}
             </>
           )}
         </>
+      )}
+
+      {canAccessJournal && (
+        <NoteStructuringWidget
+          characterId={characterId}
+          tabs={tabs.map((tab) => ({ id: tab.id, name: tab.name }))}
+          onApplied={(tabId) => setActiveTab(tabId)}
+        />
       )}
     </div>
   );

@@ -5,6 +5,7 @@ export type AuthResponse = {
   userId: string;
   name: string;
   email: string;
+  defaultCharacterId: string | null;
 };
 
 export type LoginRequest = {

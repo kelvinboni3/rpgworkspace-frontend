@@ -1,4 +1,4 @@
-export function resizeImageToDataUrl(file: File, maxDimension = 480, quality = 0.82): Promise<string> {
+export function resizeImageToBlob(file: File, maxDimension = 480, quality = 0.82): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Não foi possível ler o arquivo."));
@@ -19,7 +19,17 @@ export function resizeImageToDataUrl(file: File, maxDimension = 480, quality = 0
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Não foi possível gerar a imagem."));
+              return;
+            }
+            resolve(blob);
+          },
+          "image/jpeg",
+          quality,
+        );
       };
       img.src = reader.result as string;
     };

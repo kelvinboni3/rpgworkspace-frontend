@@ -4,6 +4,7 @@ export type CharacterTab = {
   id: string;
   characterId: string;
   name: string;
+  order: number;
   createdAt: string;
   updatedAt: string | null;
 };

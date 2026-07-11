@@ -1,6 +1,5 @@
 import { apiClient } from "@/services/api-client";
-import type { EvaluationLevelValue, ImportantPersonTypeValue } from "@/services/important-person-service";
-import type { TheoryStatusValue } from "@/services/theory-service";
+import type { CharacterTabBlockTypeValue } from "@/services/character-tab-block-service";
 
 export const CharacterStatus = {
   Active: 1,
@@ -56,32 +55,38 @@ export type CreateCharacterRequest = {
 
 export type UpdateCharacterRequest = Omit<CreateCharacterRequest, "userId">;
 
-export type CharacterDashboardLastPlayerNote = {
-  id: string;
-  title: string;
-  createdAt: string;
+export type CreateCharacterWithAccountRequest = {
+  playerName: string;
+  email: string;
+  password: string;
+  characterName: string;
+  description?: string | null;
+  race?: string | null;
+  class?: string | null;
+  level: number;
+  status: CharacterStatusValue;
 };
 
-export type CharacterDashboardTheory = {
-  id: string;
-  title: string;
-  confidence: number;
-  status: TheoryStatusValue;
+export type CharacterWithAccountResponse = {
+  character: Character;
+  userId: string;
+  playerName: string;
+  email: string;
 };
 
-export type CharacterDashboardOperation = {
-  id: string;
-  name: string;
-  status: number;
+export type CharacterDashboardTabSummary = {
+  tabId: string;
+  tabName: string;
+  blockCount: number;
 };
 
-export type CharacterDashboardImportantPerson = {
+export type CharacterDashboardRecentBlock = {
   id: string;
-  name: string;
-  type: ImportantPersonTypeValue;
-  trustLevel: EvaluationLevelValue;
-  riskLevel: EvaluationLevelValue;
-  utilityLevel: EvaluationLevelValue;
+  tabId: string;
+  tabName: string;
+  type: CharacterTabBlockTypeValue;
+  title: string | null;
+  updatedAt: string;
 };
 
 export type CharacterDashboard = {
@@ -89,15 +94,8 @@ export type CharacterDashboard = {
   characterName: string;
   campaignId: string;
   campaignName: string;
-  lastPlayerNote: CharacterDashboardLastPlayerNote | null;
-  activeTheoriesCount: number;
-  activeOperationsCount: number;
-  importantPeopleCount: number;
-  narrativeItemsCount: number;
-  recentNotes: CharacterDashboardLastPlayerNote[];
-  activeTheories: CharacterDashboardTheory[];
-  activeOperations: CharacterDashboardOperation[];
-  importantPeopleHighlights: CharacterDashboardImportantPerson[];
+  tabSummaries: CharacterDashboardTabSummary[];
+  recentBlocks: CharacterDashboardRecentBlock[];
 };
 
 export const CharacterService = {
@@ -116,6 +114,14 @@ export const CharacterService = {
     return response.data;
   },
 
+  async createWithAccount(campaignId: string, data: CreateCharacterWithAccountRequest) {
+    const response = await apiClient.post<CharacterWithAccountResponse>(
+      `/campaigns/${campaignId}/characters/with-account`,
+      data,
+    );
+    return response.data;
+  },
+
   async update(id: string, data: UpdateCharacterRequest) {
     const response = await apiClient.put<Character>(`/characters/${id}`, data);
     return response.data;
@@ -125,8 +131,18 @@ export const CharacterService = {
     await apiClient.delete(`/characters/${id}`);
   },
 
-  async updatePortrait(id: string, portraitUrl: string | null) {
-    const response = await apiClient.put<Character>(`/characters/${id}/portrait`, { portraitUrl });
+  async uploadPortrait(id: string, file: Blob) {
+    const formData = new FormData();
+    formData.append("file", file, "portrait.jpg");
+
+    const response = await apiClient.post<Character>(`/characters/${id}/portrait`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+
+  async removePortrait(id: string) {
+    const response = await apiClient.delete<Character>(`/characters/${id}/portrait`);
     return response.data;
   },
 

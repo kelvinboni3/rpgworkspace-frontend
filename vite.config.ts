@@ -9,4 +9,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    allowedHosts: [".ngrok-free.dev", ".ngrok-free.app", ".ngrok.io", ".trycloudflare.com"],
+    proxy: {
+      "/api": {
+        target: "http://localhost:5069",
+        changeOrigin: true,
+      },
+    },
+  },
 });

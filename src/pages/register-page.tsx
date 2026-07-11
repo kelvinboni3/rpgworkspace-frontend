@@ -49,6 +49,7 @@ export function RegisterPage() {
         id: data.userId,
         name: data.name,
         email: data.email,
+        defaultCharacterId: data.defaultCharacterId,
       });
       navigate(paths.home, { replace: true });
     },

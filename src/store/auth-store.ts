@@ -5,6 +5,7 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
+  defaultCharacterId: string | null;
 };
 
 export const authStore = {
