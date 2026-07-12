@@ -19,7 +19,7 @@ export const CHARACTER_STATUS_LABELS: Record<CharacterStatusValue, string> = {
 
 export type Character = {
   id: string;
-  campaignId: string;
+  campaignId: string | null;
   userId: string;
   name: string;
   description: string | null;
@@ -54,6 +54,8 @@ export type CreateCharacterRequest = {
 };
 
 export type UpdateCharacterRequest = Omit<CreateCharacterRequest, "userId">;
+
+export type CreateSoloCharacterRequest = Omit<CreateCharacterRequest, "userId">;
 
 export type CreateCharacterWithAccountRequest = {
   playerName: string;
@@ -92,8 +94,8 @@ export type CharacterDashboardRecentBlock = {
 export type CharacterDashboard = {
   characterId: string;
   characterName: string;
-  campaignId: string;
-  campaignName: string;
+  campaignId: string | null;
+  campaignName: string | null;
   tabSummaries: CharacterDashboardTabSummary[];
   recentBlocks: CharacterDashboardRecentBlock[];
 };
@@ -106,6 +108,16 @@ export const CharacterService = {
 
   async getById(id: string) {
     const response = await apiClient.get<Character>(`/characters/${id}`);
+    return response.data;
+  },
+
+  async getMine() {
+    const response = await apiClient.get<Character[]>(`/characters/mine`);
+    return response.data;
+  },
+
+  async createSolo(data: CreateSoloCharacterRequest) {
+    const response = await apiClient.post<Character>(`/characters/solo`, data);
     return response.data;
   },
 

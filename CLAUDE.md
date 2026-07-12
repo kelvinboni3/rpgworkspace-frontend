@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-This is the frontend for RPG Workspace, a React SPA that will consume the `RpgWorkspace.Api` backend (see the sibling `Back/` project — different repo root, referenced here as `../Back`). It's very early-stage: routing, auth token storage, the query/theme provider stack, and two shadcn-style UI primitives exist, but `LoginPage` and `AppHomePage` are still empty placeholder `<div>`s. There is no feature UI built yet beyond the app shell.
+This is the frontend for RPG Workspace, a React SPA that consumes the `RpgWorkspace.Api` backend (see the sibling `Back/` project — different repo root, referenced here as `../Back`). Note: much of this doc predates the current feature set (the character journal/dossier UI, book volumes, AI note structuring) — prefer reading the code in `src/pages`/`src/components/campaign` over trusting every claim below outside the Routing/Auth-state sections, which are current.
+
+The app's home (`/`, `paths.characters`) is `MyCharactersPage` — a player creates/lists their own `Character`s (solo, no workspace/campaign needed) via `CharacterService.getMine()`/`createSolo()`. The original GM-facing home (`AppHomePage`, workspaces list) still exists and is fully functional, just relocated behind `paths.gmArea` (`/gm`, a "coming soon" page) → `paths.gmWorkspaces` (`/gm/workspaces`, the real `AppHomePage`) — this is a navigation change only, no GM functionality was removed.
 
 ## Commands
 
@@ -37,7 +39,7 @@ Path alias `@/*` → `src/*`, configured in **three** places that must stay in s
 
 `src/routes/router.tsx` defines the whole tree; add new pages here, not through file-based routing. Shape:
 - `paths.login` (`/login`) → `LoginPage`, unauthenticated, outside the layout.
-- everything else nests under `<ProtectedRoute>` → `<AppLayout>` (the shell: centered `max-w-7xl` container) → page components, with `index: true` mapping `/` to `AppHomePage`.
+- everything else nests under `<ProtectedRoute>` → `<AppLayout>` (the shell: centered `max-w-7xl` container) → page components, with `index: true` **and** `paths.characters` (`/characters`) both mapping to `MyCharactersPage` (the new home), `paths.gmArea` (`/gm`) → `GmAreaComingSoonPage` → `paths.gmWorkspaces` (`/gm/workspaces`) → the original `AppHomePage`, and `paths.subscription` (`/subscription`) → `SubscriptionPage`. `AppLayout`'s header renders a small nav (`Personagens` / `Mestre`, the latter styled muted/locked) alongside the existing theme toggle and user menu.
 
 `paths.ts` (`src/routes/paths.ts`) is the single source of truth for route strings — reference `paths.xxx`, don't hardcode path strings in components.
 
@@ -50,6 +52,8 @@ Path alias `@/*` → `src/*`, configured in **three** places that must stay in s
 `src/services/api-client.ts` is the single axios instance (`apiClient`) — it attaches `Authorization: Bearer <token>` from `authStore.getAccessToken()` via a request interceptor. There is **no response interceptor**: 401s are not currently handled globally (no auto-logout/redirect on token expiry) — add that here if/when needed rather than per-call.
 
 `src/services/auth-service.ts` (`AuthService.login`/`register`) calls `POST /auth/login` and `/auth/register`, matching `AuthController` in the backend, and defines the `AuthResponse`/`LoginRequest`/`RegisterRequest` shapes inline in the service file (not in `types/`) — follow this per-service-file colocation for new API modules rather than centralizing all DTOs in `types/api.ts`. `types/api.ts` is reserved for cross-cutting shapes only (`ApiErrorResponse`, generic `PaginatedResponse<T>`).
+
+`Character.campaignId` is `string | null` (a `null` campaign means a solo character, no workspace/campaign at all — see `MyCharactersPage`/`character-detail-page.tsx`'s `isSolo` checks). `src/services/subscription-service.ts` (`SubscriptionService.getMine`/`startCheckout`) backs the free-tier gate: creating a second solo character on the free plan 402s, which pages catch via `isAxiosError(error) && error.response?.status === 402` (same pattern as the existing 503 handling in `note-structuring-widget.tsx`) and route to `paths.subscription`. `startCheckout` currently 501s (no payment gateway configured yet) — `SubscriptionPage` renders a friendly "not configured" message for that status rather than a generic error.
 
 ### UI primitives
 

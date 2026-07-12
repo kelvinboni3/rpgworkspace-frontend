@@ -81,11 +81,12 @@ export function CharacterDetailPage() {
     enabled: Boolean(workspaceId),
   });
 
+  const isSolo = !characterQuery.data?.campaignId;
   const currentMember = membersQuery.data?.find((member) => member.userId === currentUserId);
   const isOwnerOrMaster =
     currentMember?.role === WorkspaceRole.Owner || currentMember?.role === WorkspaceRole.Master;
   const isCharacterOwner = characterQuery.data?.userId === currentUserId;
-  const canAccessJournal = isOwnerOrMaster || isCharacterOwner;
+  const canAccessJournal = isSolo ? isCharacterOwner : isOwnerOrMaster || isCharacterOwner;
 
   const dashboardQuery = useQuery({
     queryKey: ["characters", characterId, "dashboard"],
@@ -180,15 +181,13 @@ export function CharacterDetailPage() {
   return (
     <div className="dossier-theme animate-fade-in-up flex flex-1 flex-col gap-6">
       <div>
-        {campaignId && (
-          <Link
-            to={paths.campaign(campaignId)}
-            className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5 text-sm transition-colors"
-          >
-            <ArrowLeft className="size-4" />
-            Voltar à campanha
-          </Link>
-        )}
+        <Link
+          to={campaignId ? paths.campaign(campaignId) : paths.characters}
+          className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5 text-sm transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          {campaignId ? "Voltar à campanha" : "Voltar aos personagens"}
+        </Link>
 
         {isLoading ? (
           <div className="text-muted-foreground flex items-center gap-2 text-sm">

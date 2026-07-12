@@ -1,9 +1,10 @@
-import { Dices, LogOut, Monitor, Moon, Sun } from "lucide-react";
-import { Outlet, useNavigate } from "react-router";
+import { Dices, Lock, LogOut, Monitor, Moon, ScrollText, Sun } from "lucide-react";
+import { NavLink, Outlet, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
 import { paths } from "@/routes/paths";
 import { authStore } from "@/store/auth-store";
+import { cn } from "@/utils/cn";
 
 const THEME_CYCLE = ["light", "dark", "system"] as const;
 const THEME_ICON = { light: Sun, dark: Moon, system: Monitor } as const;
@@ -55,16 +56,52 @@ function UserMenu() {
   );
 }
 
+function NavLinks() {
+  return (
+    <nav className="hidden items-center gap-1 sm:flex">
+      <NavLink
+        to={paths.characters}
+        className={({ isActive }) =>
+          cn(
+            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            isActive
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground",
+          )
+        }
+      >
+        <ScrollText className="size-4" />
+        Personagens
+      </NavLink>
+      <NavLink
+        to={paths.gmArea}
+        className={({ isActive }) =>
+          cn(
+            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium opacity-60 transition-colors",
+            isActive ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
+          )
+        }
+      >
+        <Lock className="size-3.5" />
+        Mestre
+      </NavLink>
+    </nav>
+  );
+}
+
 export function AppLayout() {
   return (
     <div className="hub-backdrop flex min-h-screen w-full flex-col">
       <header className="border-border/60 bg-background/60 sticky top-0 z-10 border-b backdrop-blur-xl">
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-primary/15 text-primary flex size-9 items-center justify-center rounded-xl">
-              <Dices className="size-5" />
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2.5">
+              <div className="bg-primary/15 text-primary flex size-9 items-center justify-center rounded-xl">
+                <Dices className="size-5" />
+              </div>
+              <span className="font-display text-lg font-semibold">RPG Workspace</span>
             </div>
-            <span className="font-display text-lg font-semibold">RPG Workspace</span>
+            <NavLinks />
           </div>
 
           <div className="flex items-center gap-2">
