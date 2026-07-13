@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   CheckCircle2,
   Loader2,
+  Lock,
   MessageCircle,
   Mic,
   ScrollText,
@@ -12,9 +13,11 @@ import {
   X,
 } from "lucide-react";
 import { isAxiosError } from "axios";
+import { useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { paths } from "@/routes/paths";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 import { CHARACTER_TAB_BLOCK_TYPE_LABELS } from "@/services/character-tab-block-service";
 import { NoteStructuringService } from "@/services/note-structuring-service";
@@ -29,11 +32,14 @@ export function NoteStructuringWidget({
   characterId,
   tabs,
   onApplied,
+  locked = false,
 }: {
   characterId: string;
   tabs: { id: string; name: string }[];
   onApplied: (tabId: string) => void;
+  locked?: boolean;
 }) {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isNew, setIsNew] = useState(() => localStorage.getItem(SEEN_STORAGE_KEY) !== "1");
   const [noteText, setNoteText] = useState("");
@@ -76,7 +82,9 @@ export function NoteStructuringWidget({
   const errorMessage = structureAndApplyMutation.isError
     ? isAxiosError(structureAndApplyMutation.error) && structureAndApplyMutation.error.response?.status === 503
       ? "IA indisponível no momento, tente novamente em instantes."
-      : extractErrorMessage(structureAndApplyMutation.error, "Não foi possível estruturar a anotação.")
+      : isAxiosError(structureAndApplyMutation.error) && structureAndApplyMutation.error.response?.status === 402
+        ? "A IA é exclusiva para assinantes. Assine para desbloquear."
+        : extractErrorMessage(structureAndApplyMutation.error, "Não foi possível estruturar a anotação.")
     : null;
 
   const startNewNote = () => {
@@ -141,7 +149,22 @@ export function NoteStructuringWidget({
             Estruturar anotação com IA
           </span>
 
-          {results ? (
+          {locked ? (
+            <>
+              <div className="border-primary/30 bg-primary/5 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
+                <Lock className="text-primary mt-0.5 size-4 shrink-0" />
+                <span>
+                  Cole (ou dite) suas anotações da sessão e a IA organiza tudo direto na ficha do
+                  personagem. Esse recurso é exclusivo para assinantes.
+                </span>
+              </div>
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => navigate(paths.subscription)}>
+                  Assinar para desbloquear
+                </Button>
+              </div>
+            </>
+          ) : results ? (
             <>
               {summary && (
                 <div className="border-primary/30 bg-primary/5 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">

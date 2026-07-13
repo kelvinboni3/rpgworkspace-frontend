@@ -77,11 +77,15 @@ export function SubscriptionPage() {
               Assinatura ativa. Personagens ilimitados liberados.
             </div>
           ) : isTrialing ? (
-            <div className="border-primary/30 bg-primary/5 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm">
-              <Clock className="text-primary size-4 shrink-0" />
-              {daysLeft === 1
-                ? "Último dia do seu período de teste."
-                : `Período de teste: faltam ${daysLeft ?? "-"} dias.`}
+            <div className="border-primary/30 bg-primary/5 flex items-start gap-2 rounded-lg border px-4 py-3 text-sm">
+              <Clock className="text-primary mt-0.5 size-4 shrink-0" />
+              <span>
+                {daysLeft === 1
+                  ? "Último dia do seu período de teste."
+                  : `Período de teste: faltam ${daysLeft ?? "-"} dias.`}{" "}
+                Os recursos de IA (estruturar anotações, recap, retrospectiva) são exclusivos da
+                assinatura.
+              </span>
             </div>
           ) : isExpired ? (
             <div className="border-destructive/30 bg-destructive/10 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm">

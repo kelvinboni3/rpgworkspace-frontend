@@ -17,6 +17,8 @@ export type Subscription = {
   currentPeriodEnd: string | null;
   manualOverride: boolean;
   isActive: boolean;
+  /** AI é exclusivo do plano pago: false durante o trial (a menos que manualOverride). */
+  hasAiAccess: boolean;
 };
 
 export type StartCheckoutRequest = {

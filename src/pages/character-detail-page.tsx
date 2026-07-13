@@ -6,6 +6,7 @@ import {
   Download,
   FileUp,
   Loader2,
+  Lock,
   NotebookTabs,
   Plus,
   RotateCcw,
@@ -14,7 +15,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ import { CHARACTER_STATUS_LABELS, CharacterStatus, CharacterService } from "@/se
 import { CharacterNarrativeService } from "@/services/character-narrative-service";
 import { CharacterTabService } from "@/services/character-tab-service";
 import { CharacterTabBlockService, type BlockAccentColor } from "@/services/character-tab-block-service";
+import { SubscriptionService } from "@/services/subscription-service";
 import { characterAccentStyle } from "@/utils/character-accent";
 import { WorkspaceMemberService, WorkspaceRole } from "@/services/workspace-member-service";
 import { authStore } from "@/store/auth-store";
@@ -79,6 +81,7 @@ function downloadBlob(blob: Blob, fileName: string) {
 export function CharacterDetailPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const currentUserId = authStore.getUser()?.id;
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [isAddingTab, setIsAddingTab] = useState(false);
@@ -123,6 +126,13 @@ export function CharacterDetailPage() {
     currentMember?.role === WorkspaceRole.Owner || currentMember?.role === WorkspaceRole.Master;
   const isCharacterOwner = characterQuery.data?.userId === currentUserId;
   const canAccessJournal = isSolo ? isCharacterOwner : isOwnerOrMaster || isCharacterOwner;
+
+  const subscriptionQuery = useQuery({
+    queryKey: ["subscriptions", "me"],
+    queryFn: SubscriptionService.getMine,
+  });
+  // Enquanto a assinatura carrega, não trava (o backend barra com 402 de qualquer forma).
+  const aiLocked = subscriptionQuery.data ? !subscriptionQuery.data.hasAiAccess : false;
 
   const dashboardQuery = useQuery({
     queryKey: ["characters", characterId, "dashboard"],
@@ -196,7 +206,10 @@ export function CharacterDetailPage() {
         level: c.level,
         status: CharacterStatus.Retired,
       });
-      await CharacterNarrativeService.generateRetrospective(characterId!);
+      // A retrospectiva é IA (exclusiva de assinantes) — encerrar continua funcionando sem ela.
+      if (!aiLocked) {
+        await CharacterNarrativeService.generateRetrospective(characterId!);
+      }
     },
     onSuccess: invalidateCharacter,
   });
@@ -222,11 +235,10 @@ export function CharacterDetailPage() {
   });
 
   const handleRetire = () => {
-    if (
-      window.confirm(
-        `Encerrar a campanha de ${characterQuery.data?.name}? Isso gera uma retrospectiva da jornada dele. Você pode reabrir depois se mudar de ideia.`,
-      )
-    ) {
+    const message = aiLocked
+      ? `Encerrar a campanha de ${characterQuery.data?.name}? Você pode reabrir depois se mudar de ideia. (Assinantes ganham uma retrospectiva da jornada gerada por IA.)`
+      : `Encerrar a campanha de ${characterQuery.data?.name}? Isso gera uma retrospectiva da jornada dele. Você pode reabrir depois se mudar de ideia.`;
+    if (window.confirm(message)) {
       retireMutation.mutate();
     }
   };
@@ -419,10 +431,14 @@ export function CharacterDetailPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsInterviewOpen(true)}
-                      title="Entrevista de criação guiada por IA"
+                      onClick={() => (aiLocked ? navigate(paths.subscription) : setIsInterviewOpen(true))}
+                      title={
+                        aiLocked
+                          ? "Entrevista de criação guiada por IA — exclusiva para assinantes"
+                          : "Entrevista de criação guiada por IA"
+                      }
                     >
-                      <Sparkles className="size-3.5" />
+                      {aiLocked ? <Lock className="size-3.5" /> : <Sparkles className="size-3.5" />}
                       Entrevista
                     </Button>
                   )}
@@ -431,10 +447,14 @@ export function CharacterDetailPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsImportOpen(true)}
-                      title="Importar ficha existente com IA"
+                      onClick={() => (aiLocked ? navigate(paths.subscription) : setIsImportOpen(true))}
+                      title={
+                        aiLocked
+                          ? "Importar ficha existente com IA — exclusivo para assinantes"
+                          : "Importar ficha existente com IA"
+                      }
                     >
-                      <FileUp className="size-3.5" />
+                      {aiLocked ? <Lock className="size-3.5" /> : <FileUp className="size-3.5" />}
                       Importar
                     </Button>
                   )}
@@ -592,6 +612,9 @@ export function CharacterDetailPage() {
                   characterId={characterId}
                   characterName={characterQuery.data.name}
                   lastActivityAt={dashboardQuery.data?.recentBlocks[0]?.updatedAt ?? null}
+                  locked={aiLocked}
+                  savedRecap={characterQuery.data.recapText}
+                  savedRecapGeneratedAt={characterQuery.data.recapGeneratedAt}
                 />
               )}
 
@@ -694,6 +717,7 @@ export function CharacterDetailPage() {
             characterId={characterId}
             tabs={tabs.map((tab) => ({ id: tab.id, name: tab.name }))}
             onApplied={(tabId) => setActiveTab(tabId)}
+            locked={aiLocked}
           />
           <CharacterInterviewDialog
             open={isInterviewOpen}

@@ -2,6 +2,7 @@ import { apiClient } from "@/services/api-client";
 
 export type CharacterRecapResponse = {
   recap: string;
+  generatedAt: string;
 };
 
 export type CharacterRetrospectiveResponse = {

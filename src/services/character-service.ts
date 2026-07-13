@@ -33,6 +33,8 @@ export type Character = {
   mpCurrent: number | null;
   mpMax: number | null;
   retrospectiveText: string | null;
+  recapText: string | null;
+  recapGeneratedAt: string | null;
   accentColor: BlockAccentColor | null;
   createdAt: string;
   updatedAt: string | null;
