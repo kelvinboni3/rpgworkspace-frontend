@@ -23,7 +23,7 @@ import {
   CharacterService,
   type Character,
 } from "@/services/character-service";
-import { SubscriptionService } from "@/services/subscription-service";
+import { SubscriptionService, trialDaysLeft } from "@/services/subscription-service";
 import { authStore } from "@/store/auth-store";
 import { cn } from "@/utils/cn";
 import { extractErrorMessage } from "@/utils/api-error";
@@ -37,8 +37,6 @@ const createSoloCharacterSchema = z.object({
 });
 
 type CreateSoloCharacterValues = z.infer<typeof createSoloCharacterSchema>;
-
-const FREE_SOLO_CHARACTER_LIMIT = 1;
 
 export function MyCharactersPage() {
   const user = authStore.getUser();
@@ -90,9 +88,10 @@ export function MyCharactersPage() {
   const characters = charactersQuery.data ?? [];
   const activeCharacters = characters.filter((c) => c.status !== CharacterStatus.Retired);
   const archivedCharacters = characters.filter((c) => c.status === CharacterStatus.Retired);
-  const soloCharacterCount = characters.filter((c) => c.campaignId === null).length;
-  const hasReachedFreeLimit =
-    !subscriptionQuery.data?.isActive && soloCharacterCount >= FREE_SOLO_CHARACTER_LIMIT;
+
+  const subscription = subscriptionQuery.data;
+  const daysLeft = trialDaysLeft(subscription);
+  const isSubscriptionExpired = subscription != null && !subscription.isActive;
 
   const isSubscriptionRequired =
     isAxiosError(createMutation.error) && createMutation.error.response?.status === 402;
@@ -104,22 +103,37 @@ export function MyCharactersPage() {
           <h1 className="font-display text-3xl font-bold">Bem-vindo, {firstName}</h1>
           <p className="text-muted-foreground">Seus personagens.</p>
         </div>
-        <Button className="shadow-glow" onClick={() => setIsCreating((current) => !current)}>
+        <Button
+          className="shadow-glow"
+          onClick={() => setIsCreating((current) => !current)}
+          disabled={isSubscriptionExpired}
+        >
           <Plus className="size-4" />
           Novo personagem
         </Button>
       </div>
 
-      {!isCreating && hasReachedFreeLimit && (
+      {isSubscriptionExpired ? (
+        <div className="border-destructive/30 bg-destructive/10 flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm">
+          <span>
+            Seu período de teste terminou. Assine para continuar criando e editando personagens.
+          </span>
+          <Button asChild size="sm">
+            <Link to={paths.subscription}>Assinar</Link>
+          </Button>
+        </div>
+      ) : daysLeft !== null ? (
         <div className="border-primary/30 bg-primary/5 flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm">
           <span>
-            Você já usou seu personagem solo grátis. Assine para criar personagens ilimitados.
+            {daysLeft === 1
+              ? "Último dia do seu período de teste."
+              : `Período de teste: faltam ${daysLeft} dias.`}
           </span>
           <Button asChild size="sm" variant="outline">
             <Link to={paths.subscription}>Assinar</Link>
           </Button>
         </div>
-      )}
+      ) : null}
 
       {isCreating && (
         <Card className="glass-panel glow-ring">
@@ -134,7 +148,7 @@ export function MyCharactersPage() {
                   <span className="flex items-start gap-2">
                     <TriangleAlert className="mt-0.5 size-4 shrink-0" />
                     {isSubscriptionRequired
-                      ? "Você já usou seu personagem solo grátis. Assine para criar mais."
+                      ? "Seu período de teste terminou. Assine para continuar."
                       : extractErrorMessage(
                           createMutation.error,
                           "Não foi possível criar o personagem.",

@@ -27,6 +27,23 @@ export type CheckoutSession = {
   checkoutUrl: string;
 };
 
+/** Whole days left in an ongoing trial, or null when the subscription isn't an active trial. */
+export function trialDaysLeft(subscription: Subscription | undefined): number | null {
+  if (
+    !subscription ||
+    subscription.status !== SubscriptionStatus.Trialing ||
+    subscription.manualOverride ||
+    !subscription.currentPeriodEnd
+  ) {
+    return null;
+  }
+
+  const msLeft = new Date(subscription.currentPeriodEnd).getTime() - Date.now();
+  if (msLeft <= 0) return null;
+
+  return Math.ceil(msLeft / 86_400_000);
+}
+
 export const SubscriptionService = {
   async getMine() {
     const response = await apiClient.get<Subscription>(`/subscriptions/me`);
