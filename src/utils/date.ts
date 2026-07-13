@@ -7,3 +7,8 @@
 export function formatDateOnly(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
+
+export function daysSince(dateIso: string) {
+  const diffMs = Date.now() - new Date(dateIso).getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}

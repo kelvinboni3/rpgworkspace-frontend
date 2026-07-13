@@ -1,5 +1,5 @@
 import { apiClient } from "@/services/api-client";
-import type { CharacterTabBlockTypeValue } from "@/services/character-tab-block-service";
+import type { BlockAccentColor, CharacterTabBlockTypeValue } from "@/services/character-tab-block-service";
 
 export const CharacterStatus = {
   Active: 1,
@@ -32,6 +32,8 @@ export type Character = {
   hpMax: number | null;
   mpCurrent: number | null;
   mpMax: number | null;
+  retrospectiveText: string | null;
+  accentColor: BlockAccentColor | null;
   createdAt: string;
   updatedAt: string | null;
 };
@@ -167,6 +169,18 @@ export const CharacterService = {
     const response = await apiClient.get<CharacterDashboard>(
       `/characters/${characterId}/dashboard`,
     );
+    return response.data;
+  },
+
+  async updateAccentColor(id: string, accentColor: BlockAccentColor | null) {
+    const response = await apiClient.put<Character>(`/characters/${id}/accent-color`, { accentColor });
+    return response.data;
+  },
+
+  async exportMarkdown(characterId: string) {
+    const response = await apiClient.get<Blob>(`/characters/${characterId}/export/markdown`, {
+      responseType: "blob",
+    });
     return response.data;
   },
 };
