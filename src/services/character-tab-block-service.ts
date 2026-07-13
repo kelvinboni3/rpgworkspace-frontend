@@ -9,6 +9,7 @@ export const CharacterTabBlockType = {
   Divider: 6,
   Collapse: 7,
   Book: 8,
+  Dice: 9,
 } as const;
 
 export type CharacterTabBlockTypeValue =
@@ -23,6 +24,7 @@ export const CHARACTER_TAB_BLOCK_TYPE_LABELS: Record<CharacterTabBlockTypeValue,
   [CharacterTabBlockType.Divider]: "Divisor",
   [CharacterTabBlockType.Collapse]: "Registro expansível",
   [CharacterTabBlockType.Book]: "Livro",
+  [CharacterTabBlockType.Dice]: "Rolador de Dados",
 };
 
 export const BLOCK_ACCENT_COLORS = ["gold", "crimson", "violet"] as const;
