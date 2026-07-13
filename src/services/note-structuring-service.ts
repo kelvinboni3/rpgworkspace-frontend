@@ -12,12 +12,25 @@ export type SuggestedBlock = {
   payloadJson: string | null;
 };
 
+export type StructureNoteResult = {
+  summary: string | null;
+  suggestions: SuggestedBlock[];
+};
+
 export const NoteStructuringService = {
   async structure(characterId: string, noteText: string) {
-    const response = await apiClient.post<{ suggestions: SuggestedBlock[] }>(
+    const response = await apiClient.post<StructureNoteResult>(
       `/characters/${characterId}/notes/structure`,
       { noteText },
     );
-    return response.data.suggestions;
+    return response.data;
+  },
+
+  async importSheet(characterId: string, sheetText: string) {
+    const response = await apiClient.post<StructureNoteResult>(
+      `/characters/${characterId}/notes/import`,
+      { sheetText },
+    );
+    return response.data;
   },
 };
