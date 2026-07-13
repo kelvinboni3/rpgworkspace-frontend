@@ -58,12 +58,13 @@ function UserMenu() {
 
 function NavLinks() {
   return (
-    <nav className="hidden items-center gap-1 sm:flex">
+    <nav className="flex items-center gap-1">
       <NavLink
         to={paths.characters}
+        aria-label="Personagens"
         className={({ isActive }) =>
           cn(
-            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors sm:px-3",
             isActive
               ? "bg-primary/10 text-primary"
               : "text-muted-foreground hover:text-foreground",
@@ -71,19 +72,20 @@ function NavLinks() {
         }
       >
         <ScrollText className="size-4" />
-        Personagens
+        <span className="hidden sm:inline">Personagens</span>
       </NavLink>
       <NavLink
         to={paths.gmArea}
+        aria-label="Mestre"
         className={({ isActive }) =>
           cn(
-            "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium opacity-60 transition-colors",
+            "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium opacity-60 transition-colors sm:px-3",
             isActive ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
           )
         }
       >
         <Lock className="size-3.5" />
-        Mestre
+        <span className="hidden sm:inline">Mestre</span>
       </NavLink>
     </nav>
   );
@@ -93,13 +95,13 @@ export function AppLayout() {
   return (
     <div className="hub-backdrop flex min-h-screen w-full flex-col">
       <header className="border-border/60 bg-background/60 sticky top-0 z-10 border-b backdrop-blur-xl">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-6">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex items-center gap-3 sm:gap-6">
             <div className="flex items-center gap-2.5">
-              <div className="bg-primary/15 text-primary flex size-9 items-center justify-center rounded-xl">
+              <div className="bg-primary/15 text-primary flex size-9 shrink-0 items-center justify-center rounded-xl">
                 <Dices className="size-5" />
               </div>
-              <span className="font-display text-lg font-semibold">RPG Workspace</span>
+              <span className="font-display hidden text-lg font-semibold sm:inline">RPG Workspace</span>
             </div>
             <NavLinks />
           </div>

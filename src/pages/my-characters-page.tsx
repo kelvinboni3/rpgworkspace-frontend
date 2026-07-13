@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { isAxiosError } from "axios";
-import { CalendarDays, Compass, Loader2, Plus, TriangleAlert, UserRound } from "lucide-react";
+import { Archive, CalendarDays, Compass, Loader2, Plus, TriangleAlert, UserRound } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { Link } from "react-router";
 import { z } from "zod";
@@ -88,6 +88,8 @@ export function MyCharactersPage() {
   };
 
   const characters = charactersQuery.data ?? [];
+  const activeCharacters = characters.filter((c) => c.status !== CharacterStatus.Retired);
+  const archivedCharacters = characters.filter((c) => c.status === CharacterStatus.Retired);
   const soloCharacterCount = characters.filter((c) => c.campaignId === null).length;
   const hasReachedFreeLimit =
     !subscriptionQuery.data?.isActive && soloCharacterCount >= FREE_SOLO_CHARACTER_LIMIT;
@@ -216,11 +218,27 @@ export function MyCharactersPage() {
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {characters.map((character) => (
-            <CharacterCard key={character.id} character={character} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {activeCharacters.map((character) => (
+              <CharacterCard key={character.id} character={character} />
+            ))}
+          </div>
+
+          {archivedCharacters.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-muted-foreground flex items-center gap-1.5 text-sm font-semibold">
+                <Archive className="size-4" />
+                Arquivo
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {archivedCharacters.map((character) => (
+                  <CharacterCard key={character.id} character={character} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

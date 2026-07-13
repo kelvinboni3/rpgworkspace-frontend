@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   AlignCenter,
   AlignLeft,
@@ -7,6 +15,8 @@ import {
   Camera,
   ChevronDown,
   ChevronUp,
+  Dices,
+  Eye,
   GripVertical,
   IdCard,
   ImageIcon,
@@ -44,7 +54,9 @@ import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { BlockTemplatePicker } from "@/components/campaign/block-template-picker";
 import { DossierMarkdown } from "@/components/dossier/dossier-markdown";
+import type { BlockTemplate } from "@/data/block-templates";
 import {
   BLOCK_ACCENT_COLOR_LABELS,
   BLOCK_ACCENT_COLORS,
@@ -69,8 +81,12 @@ import { CharacterTabService } from "@/services/character-tab-service";
 import { BookVolumeService } from "@/services/book-volume-service";
 import { BlockLinkPicker } from "@/components/campaign/block-link-picker";
 import { BookReaderDialog } from "@/components/campaign/book-reader-dialog";
+import { DiceBlockView } from "@/components/campaign/dice-block-view";
+import { DiceEditForm } from "@/components/campaign/dice-edit-form";
 import { MentionDropdown } from "@/components/campaign/mention-dropdown";
+import { MarkdownToolbar } from "@/components/campaign/markdown-toolbar";
 import { useMentionAutocomplete } from "@/hooks/use-mention-autocomplete";
+import { useMarkdownFormatting } from "@/hooks/use-markdown-formatting";
 import { useAuthenticatedMedia } from "@/hooks/use-authenticated-media";
 import { extractErrorMessage } from "@/utils/api-error";
 import { resizeImageToBlob } from "@/utils/image";
@@ -94,6 +110,7 @@ const BLOCK_TYPE_ICONS: Record<CharacterTabBlockTypeValue, ComponentType<{ class
   [CharacterTabBlockType.Divider]: Minus,
   [CharacterTabBlockType.Collapse]: PanelBottomOpen,
   [CharacterTabBlockType.Book]: BookOpen,
+  [CharacterTabBlockType.Dice]: Dices,
 };
 
 const ACCENT_COLOR_VARS: Record<BlockAccentColor, string> = {
@@ -118,7 +135,7 @@ function accentTextStyle(color: BlockAccentColor | null | undefined): CSSPropert
 
 const ACCENT_CAPABLE_TYPES: CharacterTabBlockTypeValue[] = [CharacterTabBlockType.Card, CharacterTabBlockType.Collapse];
 
-function AccentColorPicker({
+export function AccentColorPicker({
   value,
   onChange,
 }: {
@@ -217,6 +234,8 @@ function defaultsForType(type: CharacterTabBlockTypeValue) {
       return { title: "Novo registro", content: "" };
     case CharacterTabBlockType.Book:
       return { title: "Novo livro" };
+    case CharacterTabBlockType.Dice:
+      return { title: "Rolador de Dados" };
     case CharacterTabBlockType.Quote:
       return { content: "Uma citação marcante..." };
     default:
@@ -297,6 +316,19 @@ export function CharacterTabSection({
   const createMutation = useMutation({
     mutationFn: (type: CharacterTabBlockTypeValue) =>
       CharacterTabBlockService.create(tabId, { type, ...defaultsForType(type) }),
+    onSuccess: (created) => {
+      invalidateBlocks();
+      setEditingBlockId(created.id);
+    },
+  });
+
+  const createFromTemplateMutation = useMutation({
+    mutationFn: (template: BlockTemplate) =>
+      CharacterTabBlockService.create(tabId, {
+        type: template.type,
+        title: template.title,
+        payloadJson: template.payloadJson,
+      }),
     onSuccess: (created) => {
       invalidateBlocks();
       setEditingBlockId(created.id);
@@ -489,7 +521,11 @@ export function CharacterTabSection({
         </div>
       )}
 
-      <div className="border-border/60 flex flex-wrap gap-1.5 border-t border-dashed pt-5">
+      <div className="border-border/60 flex flex-wrap items-center gap-1.5 border-t border-dashed pt-5">
+        <BlockTemplatePicker
+          onSelect={(template) => createFromTemplateMutation.mutate(template)}
+          disabled={createFromTemplateMutation.isPending}
+        />
         {Object.entries(CHARACTER_TAB_BLOCK_TYPE_LABELS).map(([value, label]) => {
           const type = Number(value) as CharacterTabBlockTypeValue;
           const Icon = BLOCK_TYPE_ICONS[type];
@@ -521,7 +557,7 @@ function EmptyHint() {
   );
 }
 
-function EditFormActions({ onCancel, isSaving }: { onCancel: () => void; isSaving: boolean }) {
+export function EditFormActions({ onCancel, isSaving }: { onCancel: () => void; isSaving: boolean }) {
   return (
     <div className="flex justify-end gap-2">
       <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>
@@ -850,6 +886,9 @@ function BlockView({
 
     case CharacterTabBlockType.Book:
       return <BookCoverCard block={block} />;
+
+    case CharacterTabBlockType.Dice:
+      return <DiceBlockView block={block} />;
 
     case CharacterTabBlockType.Collapse:
       return (
@@ -1488,6 +1527,8 @@ function BlockEditForm({
       return <DividerEditForm onSubmit={onSubmit} onCancel={onCancel} isSaving={isSaving} />;
     case CharacterTabBlockType.Book:
       return <BookEditForm block={block} onSubmit={onSubmit} onCancel={onCancel} isSaving={isSaving} />;
+    case CharacterTabBlockType.Dice:
+      return <DiceEditForm block={block} onSubmit={onSubmit} onCancel={onCancel} isSaving={isSaving} />;
     case CharacterTabBlockType.Collapse:
       return (
         <CollapseEditForm
@@ -1501,6 +1542,91 @@ function BlockEditForm({
     default:
       return null;
   }
+}
+
+/** Textarea + Markdown formatting toolbar + Editar/Pré-visualizar toggle, shared by every free-text block editor (Text, Quote, Collapse). */
+function MarkdownEditorField({
+  value,
+  onChange,
+  textareaRef,
+  mention,
+  formatting,
+  rows,
+  placeholder,
+  trailingSlot,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  mention: ReturnType<typeof useMentionAutocomplete>;
+  formatting: ReturnType<typeof useMarkdownFormatting>;
+  rows: number;
+  placeholder: string;
+  trailingSlot?: ReactNode;
+}) {
+  const [previewing, setPreviewing] = useState(false);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <MarkdownToolbar formatting={formatting} disabled={previewing} />
+        <div className="flex items-center gap-1">
+          {trailingSlot}
+          <button
+            type="button"
+            onClick={() => setPreviewing((p) => !p)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-xs transition-colors",
+              previewing
+                ? "bg-accent/10 text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/10",
+            )}
+          >
+            {previewing ? <Pencil className="size-3.5" /> : <Eye className="size-3.5" />}
+            {previewing ? "Editar" : "Pré-visualizar"}
+          </button>
+        </div>
+      </div>
+      {previewing ? (
+        <div className="border-border/60 bg-card/40 min-h-24 border px-3 py-2">
+          {value ? (
+            <DossierMarkdown text={value} />
+          ) : (
+            <p className="text-muted-foreground text-xs italic">Nada para pré-visualizar ainda.</p>
+          )}
+        </div>
+      ) : (
+        <div className="relative">
+          <Textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+              mention.handleChange();
+            }}
+            onKeyDown={(e) => {
+              mention.handleKeyDown(e);
+              formatting.handleShortcut(e);
+            }}
+            onKeyUp={mention.handleSelectionChange}
+            onClick={mention.handleSelectionChange}
+            rows={rows}
+            placeholder={placeholder}
+          />
+          {mention.isOpen && (
+            <MentionDropdown
+              position={mention.position}
+              options={mention.options}
+              activeIndex={mention.activeIndex}
+              isLoading={mention.isLoading}
+              onSelect={mention.select}
+              onHoverIndex={mention.setActiveIndex}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TextLikeEditForm({
@@ -1520,20 +1646,7 @@ function TextLikeEditForm({
   const isQuote = block.type === CharacterTabBlockType.Quote;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const insertAtCursor = (snippet: string) => {
-    const el = textareaRef.current;
-    setContent((current) => {
-      const start = el?.selectionStart ?? current.length;
-      const end = el?.selectionEnd ?? current.length;
-      const next = current.slice(0, start) + snippet + current.slice(end);
-      requestAnimationFrame(() => {
-        el?.focus();
-        const pos = start + snippet.length;
-        el?.setSelectionRange(pos, pos);
-      });
-      return next;
-    });
-  };
+  const formatting = useMarkdownFormatting({ textareaRef, value: content, onChange: setContent });
 
   const mention = useMentionAutocomplete({
     characterId,
@@ -1550,36 +1663,18 @@ function TextLikeEditForm({
       }}
       className="space-y-3"
     >
-      <div className="flex justify-end">
-        <BlockLinkPicker characterId={characterId} excludeBlockId={block.id} onInsert={insertAtCursor} />
-      </div>
-      <div className="relative">
-        <Textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => {
-            setContent(e.target.value);
-            mention.handleChange();
-          }}
-          onKeyDown={mention.handleKeyDown}
-          onKeyUp={mention.handleSelectionChange}
-          onClick={mention.handleSelectionChange}
-          rows={isQuote ? 3 : 6}
-          placeholder={
-            isQuote ? "Uma citação marcante..." : "Escreva aqui... (aceita Markdown, digite @ pra vincular)"
-          }
-        />
-        {mention.isOpen && (
-          <MentionDropdown
-            position={mention.position}
-            options={mention.options}
-            activeIndex={mention.activeIndex}
-            isLoading={mention.isLoading}
-            onSelect={mention.select}
-            onHoverIndex={mention.setActiveIndex}
-          />
-        )}
-      </div>
+      <MarkdownEditorField
+        value={content}
+        onChange={setContent}
+        textareaRef={textareaRef}
+        mention={mention}
+        formatting={formatting}
+        rows={isQuote ? 3 : 6}
+        placeholder={isQuote ? "Uma citação marcante..." : "Escreva aqui... (aceita Markdown, digite @ pra vincular)"}
+        trailingSlot={
+          <BlockLinkPicker characterId={characterId} excludeBlockId={block.id} onInsert={formatting.insertAtCursor} />
+        }
+      />
       <EditFormActions onCancel={onCancel} isSaving={isSaving} />
     </form>
   );
@@ -1997,20 +2092,11 @@ function CollapseEditForm({
 
   const isProcessingThumbnail = uploadThumbnailMutation.isPending || removeThumbnailMutation.isPending;
 
-  const insertAtCursor = (snippet: string) => {
-    const el = contentTextareaRef.current;
-    setContent((current) => {
-      const start = el?.selectionStart ?? current.length;
-      const end = el?.selectionEnd ?? current.length;
-      const next = current.slice(0, start) + snippet + current.slice(end);
-      requestAnimationFrame(() => {
-        el?.focus();
-        const pos = start + snippet.length;
-        el?.setSelectionRange(pos, pos);
-      });
-      return next;
-    });
-  };
+  const formatting = useMarkdownFormatting({
+    textareaRef: contentTextareaRef,
+    value: content,
+    onChange: setContent,
+  });
 
   const handleThumbnailFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -2085,35 +2171,23 @@ function CollapseEditForm({
         </div>
       </div>
       <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs">Conteúdo</Label>
-          <BlockLinkPicker characterId={characterId} excludeBlockId={block.id} onInsert={insertAtCursor} />
-        </div>
-        <div className="relative">
-          <Textarea
-            ref={contentTextareaRef}
-            value={content}
-            onChange={(e) => {
-              setContent(e.target.value);
-              mention.handleChange();
-            }}
-            onKeyDown={mention.handleKeyDown}
-            onKeyUp={mention.handleSelectionChange}
-            onClick={mention.handleSelectionChange}
-            rows={6}
-            placeholder="Escreva aqui... (aceita Markdown, digite @ pra vincular)"
-          />
-          {mention.isOpen && (
-            <MentionDropdown
-              position={mention.position}
-              options={mention.options}
-              activeIndex={mention.activeIndex}
-              isLoading={mention.isLoading}
-              onSelect={mention.select}
-              onHoverIndex={mention.setActiveIndex}
+        <Label className="text-xs">Conteúdo</Label>
+        <MarkdownEditorField
+          value={content}
+          onChange={setContent}
+          textareaRef={contentTextareaRef}
+          mention={mention}
+          formatting={formatting}
+          rows={6}
+          placeholder="Escreva aqui... (aceita Markdown, digite @ pra vincular)"
+          trailingSlot={
+            <BlockLinkPicker
+              characterId={characterId}
+              excludeBlockId={block.id}
+              onInsert={formatting.insertAtCursor}
             />
-          )}
-        </div>
+          }
+        />
       </div>
       <EditFormActions onCancel={onCancel} isSaving={isSaving} />
     </form>

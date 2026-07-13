@@ -1,29 +1,29 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Loader2, MessageCircle, TriangleAlert, Wand2, X } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  MessageCircle,
+  Mic,
+  ScrollText,
+  Square,
+  TriangleAlert,
+  Wand2,
+  X,
+} from "lucide-react";
 import { isAxiosError } from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  CHARACTER_TAB_BLOCK_TYPE_LABELS,
-  CharacterTabBlockService,
-  CharacterTabBlockType,
-  type CharacterTabBlockTypeValue,
-} from "@/services/character-tab-block-service";
-import { CharacterTabService } from "@/services/character-tab-service";
+import { useSpeechDictation } from "@/hooks/use-speech-dictation";
+import { CHARACTER_TAB_BLOCK_TYPE_LABELS } from "@/services/character-tab-block-service";
 import { NoteStructuringService } from "@/services/note-structuring-service";
+import { applySuggestions, undoSuggestions, type AppliedResult, type UndoAction } from "@/services/note-suggestions";
 import { extractErrorMessage } from "@/utils/api-error";
+import { cn } from "@/utils/cn";
 
-const PAYLOAD_TYPES: CharacterTabBlockTypeValue[] = [CharacterTabBlockType.Card, CharacterTabBlockType.Table];
 const NOTE_MAX_LENGTH = 4000;
-
-type AppliedResult = {
-  mode: "update" | "create";
-  tabName: string;
-  type: CharacterTabBlockTypeValue;
-  title: string | null;
-};
+const SEEN_STORAGE_KEY = "rpg-workspace-ai-widget-seen";
 
 export function NoteStructuringWidget({
   characterId,
@@ -35,70 +35,41 @@ export function NoteStructuringWidget({
   onApplied: (tabId: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isNew, setIsNew] = useState(() => localStorage.getItem(SEEN_STORAGE_KEY) !== "1");
   const [noteText, setNoteText] = useState("");
   const [results, setResults] = useState<AppliedResult[] | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [undoActions, setUndoActions] = useState<UndoAction[] | null>(null);
   const queryClient = useQueryClient();
+
+  const invalidateCharacterQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["characters", characterId, "tabs"] });
+    queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey[0] === "character-tabs" && query.queryKey[2] === "blocks",
+    });
+  };
+
+  const dictation = useSpeechDictation({
+    onFinalResult: (text) => {
+      setNoteText((current) => {
+        const needsSpace = current.length > 0 && !/\s$/.test(current);
+        return `${current}${needsSpace ? " " : ""}${text} `.slice(0, NOTE_MAX_LENGTH);
+      });
+    },
+  });
 
   const structureAndApplyMutation = useMutation({
     mutationFn: async () => {
-      const suggestions = await NoteStructuringService.structure(characterId, noteText);
-      const newTabByName = new Map<string, { id: string; name: string }>();
-      const applied: AppliedResult[] = [];
-      let firstTabId: string | null = null;
-
-      for (const suggestion of suggestions) {
-        const payloadJson = PAYLOAD_TYPES.includes(suggestion.type) ? suggestion.payloadJson : null;
-
-        if (suggestion.targetBlockId && suggestion.targetTabId) {
-          await CharacterTabBlockService.update(suggestion.targetBlockId, {
-            title: suggestion.title,
-            content: suggestion.content,
-            payloadJson,
-          });
-
-          const tabName = tabs.find((t) => t.id === suggestion.targetTabId)?.name ?? "?";
-          applied.push({ mode: "update", tabName, type: suggestion.type, title: suggestion.title });
-          firstTabId ??= suggestion.targetTabId;
-          continue;
-        }
-
-        let tabId = suggestion.targetTabId;
-        let tabName = tabs.find((t) => t.id === tabId)?.name ?? "";
-
-        if (!tabId) {
-          const name = suggestion.suggestedNewTabName?.trim() || "Nova aba";
-          const cached = newTabByName.get(name);
-          if (cached) {
-            tabId = cached.id;
-            tabName = cached.name;
-          } else {
-            const createdTab = await CharacterTabService.create(characterId, { name });
-            newTabByName.set(name, { id: createdTab.id, name: createdTab.name });
-            tabId = createdTab.id;
-            tabName = createdTab.name;
-          }
-        }
-
-        await CharacterTabBlockService.create(tabId, {
-          type: suggestion.type,
-          title: suggestion.title,
-          content: suggestion.content,
-          payloadJson,
-        });
-
-        applied.push({ mode: "create", tabName, type: suggestion.type, title: suggestion.title });
-        firstTabId ??= tabId;
-      }
-
-      return { applied, firstTabId };
+      const { summary, suggestions } = await NoteStructuringService.structure(characterId, noteText);
+      const { applied, firstTabId, undo } = await applySuggestions(characterId, tabs, suggestions);
+      return { applied, firstTabId, summary, undo };
     },
-    onSuccess: ({ applied, firstTabId }) => {
-      queryClient.invalidateQueries({ queryKey: ["characters", characterId, "tabs"] });
-      queryClient.invalidateQueries({
-        predicate: (query) => query.queryKey[0] === "character-tabs" && query.queryKey[2] === "blocks",
-      });
+    onSuccess: ({ applied, firstTabId, summary, undo }) => {
+      invalidateCharacterQueries();
       if (firstTabId) onApplied(firstTabId);
       setResults(applied);
+      setSummary(summary);
+      setUndoActions(undo);
     },
   });
 
@@ -109,20 +80,57 @@ export function NoteStructuringWidget({
     : null;
 
   const startNewNote = () => {
+    if (dictation.isListening) dictation.stop();
     setResults(null);
+    setSummary(null);
+    setUndoActions(null);
     setNoteText("");
     structureAndApplyMutation.reset();
+    undoMutation.reset();
+  };
+
+  const undoMutation = useMutation({
+    mutationFn: undoSuggestions,
+    onSuccess: () => {
+      invalidateCharacterQueries();
+      startNewNote();
+    },
+  });
+
+  const undoErrorMessage = undoMutation.isError
+    ? extractErrorMessage(undoMutation.error, "Não foi possível desfazer.")
+    : null;
+
+  const handleStructureClick = () => {
+    if (dictation.isListening) dictation.stop();
+    structureAndApplyMutation.mutate();
   };
 
   return createPortal(
     <>
       <button
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => {
+          if (isNew) {
+            localStorage.setItem(SEEN_STORAGE_KEY, "1");
+            setIsNew(false);
+          }
+          setIsOpen((current) => {
+            const next = !current;
+            if (!next && dictation.isListening) dictation.stop();
+            return next;
+          });
+        }}
         title={isOpen ? "Fechar" : "Estruturar anotação com IA"}
         aria-label={isOpen ? "Fechar assistente de anotações" : "Abrir assistente de anotações"}
         className="bg-primary text-primary-foreground shadow-glow fixed right-6 bottom-6 z-50 flex size-14 items-center justify-center rounded-full transition-transform hover:scale-105"
       >
+        {isNew && !isOpen && (
+          <span className="absolute top-0.5 right-0.5 flex size-3.5">
+            <span className="bg-accent absolute inline-flex size-full animate-ping rounded-full opacity-75" />
+            <span className="bg-accent border-background relative inline-flex size-3.5 rounded-full border-2" />
+          </span>
+        )}
         {isOpen ? <X className="size-5" /> : <MessageCircle className="size-6" />}
       </button>
 
@@ -135,6 +143,12 @@ export function NoteStructuringWidget({
 
           {results ? (
             <>
+              {summary && (
+                <div className="border-primary/30 bg-primary/5 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
+                  <ScrollText className="text-primary mt-0.5 size-4 shrink-0" />
+                  <span>{summary}</span>
+                </div>
+              )}
               {results.length === 0 ? (
                 <p className="text-muted-foreground py-6 text-center text-sm italic">
                   A IA não encontrou nada estruturável nessa anotação.
@@ -159,8 +173,28 @@ export function NoteStructuringWidget({
               <p className="text-muted-foreground text-xs italic">
                 Confira o resultado direto na aba/bloco correspondente da ficha.
               </p>
-              <div className="flex justify-end">
-                <Button type="button" onClick={startNewNote}>
+
+              {undoErrorMessage && (
+                <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                  <span>{undoErrorMessage}</span>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                {undoActions && undoActions.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => undoMutation.mutate(undoActions)}
+                    disabled={undoMutation.isPending}
+                    title="Reverte os blocos criados/atualizados por essa anotação"
+                  >
+                    {undoMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                    Desfazer
+                  </Button>
+                )}
+                <Button type="button" onClick={startNewNote} disabled={undoMutation.isPending}>
                   Nova anotação
                 </Button>
               </div>
@@ -168,18 +202,52 @@ export function NoteStructuringWidget({
           ) : (
             <>
               <div className="space-y-1">
-                <Textarea
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value.slice(0, NOTE_MAX_LENGTH))}
-                  rows={6}
-                  maxLength={NOTE_MAX_LENGTH}
-                  disabled={structureAndApplyMutation.isPending}
-                  placeholder="Cole aqui sua anotação livre (ex.: resumo da sessão, descrição de um NPC que conheceu...)"
-                />
+                <div className="relative">
+                  <Textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value.slice(0, NOTE_MAX_LENGTH))}
+                    rows={6}
+                    maxLength={NOTE_MAX_LENGTH}
+                    disabled={structureAndApplyMutation.isPending}
+                    placeholder={
+                      dictation.isListening
+                        ? "Ouvindo... fale sua anotação."
+                        : "Cole aqui sua anotação livre (ex.: resumo da sessão, descrição de um NPC que conheceu...)"
+                    }
+                    className="pr-10"
+                  />
+                  {dictation.isSupported && (
+                    <button
+                      type="button"
+                      onClick={() => (dictation.isListening ? dictation.stop() : dictation.start())}
+                      disabled={structureAndApplyMutation.isPending}
+                      title={dictation.isListening ? "Parar ditado por voz" : "Ditar anotação por voz"}
+                      className={cn(
+                        "absolute top-2 right-2 flex size-6 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                        dictation.isListening
+                          ? "bg-destructive text-destructive-foreground animate-pulse"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/10",
+                      )}
+                    >
+                      {dictation.isListening ? (
+                        <Square className="size-3" />
+                      ) : (
+                        <Mic className="size-3.5" />
+                      )}
+                    </button>
+                  )}
+                </div>
                 <div className="text-muted-foreground text-right text-xs">
                   {noteText.length}/{NOTE_MAX_LENGTH}
                 </div>
               </div>
+
+              {dictation.error && (
+                <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                  <span>{dictation.error}</span>
+                </div>
+              )}
 
               {errorMessage && (
                 <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
@@ -191,7 +259,7 @@ export function NoteStructuringWidget({
               <div className="flex justify-end">
                 <Button
                   type="button"
-                  onClick={() => structureAndApplyMutation.mutate()}
+                  onClick={handleStructureClick}
                   disabled={!noteText.trim() || structureAndApplyMutation.isPending}
                 >
                   {structureAndApplyMutation.isPending && <Loader2 className="size-4 animate-spin" />}

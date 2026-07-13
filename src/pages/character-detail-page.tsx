@@ -1,10 +1,15 @@
 import { useRef, useState } from "react";
 import {
+  Archive,
   ArrowLeft,
   Camera,
+  Download,
+  FileUp,
   Loader2,
   NotebookTabs,
   Plus,
+  RotateCcw,
+  Sparkles,
   TriangleAlert,
   UserRound,
 } from "lucide-react";
@@ -16,13 +21,21 @@ import { Input } from "@/components/ui/input";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { Label } from "@/components/ui/label";
 import { CharacterDashboardSummary } from "@/components/campaign/character-dashboard-summary";
-import { CharacterTabSection } from "@/components/campaign/character-tab-section";
+import { CharacterImportDialog } from "@/components/campaign/character-import-dialog";
+import { CharacterInterviewDialog } from "@/components/campaign/character-interview-dialog";
+import { CharacterSearchBar } from "@/components/campaign/character-search-bar";
+import { AccentColorPicker, CharacterTabSection } from "@/components/campaign/character-tab-section";
 import { NoteStructuringWidget } from "@/components/campaign/note-structuring-widget";
+import { SessionRecapCard } from "@/components/campaign/session-recap-card";
+import { CharacterMemoryCard } from "@/components/campaign/character-memory-card";
+import { CharacterRetrospectiveCard } from "@/components/campaign/character-retrospective-card";
 import { paths } from "@/routes/paths";
 import { CampaignService } from "@/services/campaign-service";
-import { CHARACTER_STATUS_LABELS, CharacterService } from "@/services/character-service";
+import { CHARACTER_STATUS_LABELS, CharacterStatus, CharacterService } from "@/services/character-service";
+import { CharacterNarrativeService } from "@/services/character-narrative-service";
 import { CharacterTabService } from "@/services/character-tab-service";
-import { CharacterTabBlockService } from "@/services/character-tab-block-service";
+import { CharacterTabBlockService, type BlockAccentColor } from "@/services/character-tab-block-service";
+import { characterAccentStyle } from "@/utils/character-accent";
 import { WorkspaceMemberService, WorkspaceRole } from "@/services/workspace-member-service";
 import { authStore } from "@/store/auth-store";
 import { useAuthenticatedMedia } from "@/hooks/use-authenticated-media";
@@ -42,6 +55,27 @@ function vitalPercent(current: number | null, max: number | null) {
   return Math.min(100, Math.max(0, ((current ?? 0) / max) * 100));
 }
 
+function slugify(name: string) {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "personagem";
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+
 export function CharacterDetailPage() {
   const { characterId } = useParams<{ characterId: string }>();
   const currentUserId = authStore.getUser()?.id;
@@ -51,6 +85,8 @@ export function CharacterDetailPage() {
   const [focusBlockId, setFocusBlockId] = useState<string | null>(null);
   const portraitInputRef = useRef<HTMLInputElement>(null);
   const [isPortraitLightboxOpen, setIsPortraitLightboxOpen] = useState(false);
+  const [isInterviewOpen, setIsInterviewOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const handleNavigateToBlock = async (blockId: string) => {
     const block = await CharacterTabBlockService.getById(blockId);
@@ -137,6 +173,64 @@ export function CharacterDetailPage() {
     },
   });
 
+  const exportMarkdownMutation = useMutation({
+    mutationFn: () => CharacterService.exportMarkdown(characterId!),
+    onSuccess: (blob) => {
+      downloadBlob(blob, `${slugify(characterQuery.data?.name ?? "personagem")}.md`);
+    },
+  });
+
+  const invalidateCharacter = () => {
+    queryClient.invalidateQueries({ queryKey: ["characters", characterId] });
+    queryClient.invalidateQueries({ queryKey: ["characters", "mine"] });
+  };
+
+  const retireMutation = useMutation({
+    mutationFn: async () => {
+      const c = characterQuery.data!;
+      await CharacterService.update(characterId!, {
+        name: c.name,
+        description: c.description,
+        race: c.race,
+        class: c.class,
+        level: c.level,
+        status: CharacterStatus.Retired,
+      });
+      await CharacterNarrativeService.generateRetrospective(characterId!);
+    },
+    onSuccess: invalidateCharacter,
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: () => {
+      const c = characterQuery.data!;
+      return CharacterService.update(characterId!, {
+        name: c.name,
+        description: c.description,
+        race: c.race,
+        class: c.class,
+        level: c.level,
+        status: CharacterStatus.Active,
+      });
+    },
+    onSuccess: invalidateCharacter,
+  });
+
+  const updateAccentColorMutation = useMutation({
+    mutationFn: (color: BlockAccentColor | null) => CharacterService.updateAccentColor(characterId!, color),
+    onSuccess: invalidateCharacter,
+  });
+
+  const handleRetire = () => {
+    if (
+      window.confirm(
+        `Encerrar a campanha de ${characterQuery.data?.name}? Isso gera uma retrospectiva da jornada dele. Você pode reabrir depois se mudar de ideia.`,
+      )
+    ) {
+      retireMutation.mutate();
+    }
+  };
+
   const handlePortraitFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -179,14 +273,17 @@ export function CharacterDetailPage() {
   const isLoading = characterQuery.isLoading || campaignQuery.isLoading || membersQuery.isLoading;
 
   return (
-    <div className="dossier-theme animate-fade-in-up flex flex-1 flex-col gap-6">
+    <div
+      className="dossier-theme animate-fade-in-up flex flex-1 flex-col gap-6"
+      style={characterAccentStyle(characterQuery.data?.accentColor)}
+    >
       <div>
         <Link
-          to={campaignId ? paths.campaign(campaignId) : paths.characters}
+          to={paths.characters}
           className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5 text-sm transition-colors"
         >
           <ArrowLeft className="size-4" />
-          {campaignId ? "Voltar à campanha" : "Voltar aos personagens"}
+          Voltar aos personagens
         </Link>
 
         {isLoading ? (
@@ -266,6 +363,12 @@ export function CharacterDetailPage() {
                     {CHARACTER_STATUS_LABELS[characterQuery.data.status]}
                   </span>
                 )}
+                {isCharacterOwner && (
+                  <AccentColorPicker
+                    value={characterQuery.data?.accentColor ?? null}
+                    onChange={(color) => updateAccentColorMutation.mutate(color)}
+                  />
+                )}
               </div>
               <p className="dossier-meta text-xs">
                 {characterQuery.data &&
@@ -293,6 +396,88 @@ export function CharacterDetailPage() {
 
             {characterQuery.data && (
               <div className="flex shrink-0 flex-col items-end gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
+                  {canAccessJournal && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => exportMarkdownMutation.mutate()}
+                      disabled={exportMarkdownMutation.isPending}
+                      title="Exportar diário em Markdown"
+                    >
+                      {exportMarkdownMutation.isPending ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Download className="size-3.5" />
+                      )}
+                      Exportar
+                    </Button>
+                  )}
+                  {canAccessJournal && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsInterviewOpen(true)}
+                      title="Entrevista de criação guiada por IA"
+                    >
+                      <Sparkles className="size-3.5" />
+                      Entrevista
+                    </Button>
+                  )}
+                  {canAccessJournal && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsImportOpen(true)}
+                      title="Importar ficha existente com IA"
+                    >
+                      <FileUp className="size-3.5" />
+                      Importar
+                    </Button>
+                  )}
+                  {isCharacterOwner && characterQuery.data.status !== CharacterStatus.Retired && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRetire}
+                      disabled={retireMutation.isPending}
+                      title="Encerrar a campanha deste personagem e gerar a retrospectiva"
+                    >
+                      {retireMutation.isPending ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Archive className="size-3.5" />
+                      )}
+                      Encerrar personagem
+                    </Button>
+                  )}
+                  {isCharacterOwner && characterQuery.data.status === CharacterStatus.Retired && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => reopenMutation.mutate()}
+                      disabled={reopenMutation.isPending}
+                      title="Reabrir este personagem"
+                    >
+                      {reopenMutation.isPending ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <RotateCcw className="size-3.5" />
+                      )}
+                      Reabrir personagem
+                    </Button>
+                  )}
+                </div>
+                {retireMutation.isError && (
+                  <p className="text-destructive max-w-64 text-right text-xs">
+                    {extractErrorMessage(retireMutation.error, "Não foi possível encerrar o personagem.")}
+                  </p>
+                )}
                 {characterQuery.data.hpMax != null || characterQuery.data.mpMax != null ? (
                   <button
                     type="button"
@@ -402,6 +587,33 @@ export function CharacterDetailPage() {
                 <CharacterDashboardSummary dashboard={dashboardQuery.data} />
               )}
 
+              {characterQuery.data && characterQuery.data.status !== CharacterStatus.Retired && (
+                <SessionRecapCard
+                  characterId={characterId}
+                  characterName={characterQuery.data.name}
+                  lastActivityAt={dashboardQuery.data?.recentBlocks[0]?.updatedAt ?? null}
+                />
+              )}
+
+              {characterQuery.data && characterQuery.data.status !== CharacterStatus.Retired && (
+                <CharacterMemoryCard characterId={characterId} onNavigateToBlock={handleNavigateToBlock} />
+              )}
+
+              {characterQuery.data?.status === CharacterStatus.Retired &&
+                characterQuery.data.retrospectiveText && (
+                  <CharacterRetrospectiveCard
+                    name={characterQuery.data.name}
+                    race={characterQuery.data.race}
+                    class={characterQuery.data.class}
+                    level={characterQuery.data.level}
+                    portraitSrc={portraitBlobUrl ?? null}
+                    retrospectiveText={characterQuery.data.retrospectiveText}
+                    accentColor={characterQuery.data.accentColor}
+                  />
+                )}
+
+              <CharacterSearchBar characterId={characterId} onNavigateToBlock={handleNavigateToBlock} />
+
               {tabsQuery.isLoading ? (
                 <div className="text-muted-foreground flex items-center gap-2 text-sm">
                   <Loader2 className="size-4 animate-spin" />
@@ -477,11 +689,27 @@ export function CharacterDetailPage() {
       )}
 
       {canAccessJournal && (
-        <NoteStructuringWidget
-          characterId={characterId}
-          tabs={tabs.map((tab) => ({ id: tab.id, name: tab.name }))}
-          onApplied={(tabId) => setActiveTab(tabId)}
-        />
+        <>
+          <NoteStructuringWidget
+            characterId={characterId}
+            tabs={tabs.map((tab) => ({ id: tab.id, name: tab.name }))}
+            onApplied={(tabId) => setActiveTab(tabId)}
+          />
+          <CharacterInterviewDialog
+            open={isInterviewOpen}
+            onClose={() => setIsInterviewOpen(false)}
+            characterId={characterId}
+            tabs={tabs.map((tab) => ({ id: tab.id, name: tab.name }))}
+            onApplied={(tabId) => setActiveTab(tabId)}
+          />
+          <CharacterImportDialog
+            open={isImportOpen}
+            onClose={() => setIsImportOpen(false)}
+            characterId={characterId}
+            tabs={tabs.map((tab) => ({ id: tab.id, name: tab.name }))}
+            onApplied={(tabId) => setActiveTab(tabId)}
+          />
+        </>
       )}
     </div>
   );
