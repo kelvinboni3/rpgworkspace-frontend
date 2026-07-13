@@ -1,0 +1,19 @@
+{
+  "name": "RPG Workspace",
+  "short_name": "RPG Workspace",
+  "description": "Diário e anotações organizadas para seus personagens e campanhas de RPG.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0e0c18",
+  "theme_color": "#0e0c18",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

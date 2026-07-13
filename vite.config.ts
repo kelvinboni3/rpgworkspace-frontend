@@ -18,4 +18,14 @@ export default defineConfig({
       },
     },
   },
+  // `vite preview` (production build) doesn't inherit `server.proxy` — without this, /api calls
+  // 404 on the preview server since VITE_API_BASE_URL is the relative "/api" in .env.
+  preview: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:5069",
+        changeOrigin: true,
+      },
+    },
+  },
 });
