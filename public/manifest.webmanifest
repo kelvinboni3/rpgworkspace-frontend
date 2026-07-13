@@ -1,6 +1,6 @@
 {
-  "name": "RPG Workspace",
-  "short_name": "RPG Workspace",
+  "name": "Aventurário",
+  "short_name": "Aventurário",
   "description": "Diário e anotações organizadas para seus personagens e campanhas de RPG.",
   "start_url": "/",
   "scope": "/",

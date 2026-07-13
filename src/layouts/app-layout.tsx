@@ -101,7 +101,7 @@ export function AppLayout() {
               <div className="bg-primary/15 text-primary flex size-9 shrink-0 items-center justify-center rounded-xl">
                 <Dices className="size-5" />
               </div>
-              <span className="font-display hidden text-lg font-semibold sm:inline">RPG Workspace</span>
+              <span className="font-display hidden text-lg font-semibold sm:inline">Aventurário</span>
             </div>
             <NavLinks />
           </div>

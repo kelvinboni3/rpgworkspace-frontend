@@ -22,7 +22,7 @@ export function AuthShell({ title, description, children }: AuthShellProps) {
               <Dices className="size-6" />
             </div>
             <span className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
-              RPG Workspace
+              Aventurário
             </span>
           </div>
 
@@ -63,7 +63,7 @@ export function AuthShell({ title, description, children }: AuthShellProps) {
                 <Dices className="size-5" />
               </div>
               <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-                RPG Workspace
+                Aventurário
               </span>
             </div>
           </div>
