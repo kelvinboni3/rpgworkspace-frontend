@@ -5,23 +5,23 @@
 @layer base {
   :root {
     --background: 250 40% 98%;
-    --foreground: 250 30% 10%;
+    --foreground: 250 32% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 250 30% 10%;
+    --card-foreground: 250 32% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 250 30% 10%;
+    --popover-foreground: 250 32% 12%;
     --primary: 258 82% 56%;
     --primary-foreground: 250 40% 98%;
-    --secondary: 250 30% 94%;
-    --secondary-foreground: 250 30% 14%;
-    --muted: 250 30% 94%;
-    --muted-foreground: 250 12% 42%;
-    --accent: 38 92% 50%;
-    --accent-foreground: 250 30% 10%;
+    --secondary: 250 30% 93%;
+    --secondary-foreground: 250 30% 20%;
+    --muted: 250 30% 93%;
+    --muted-foreground: 250 10% 38%;
+    --accent: 32 90% 46%;
+    --accent-foreground: 250 40% 98%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 250 40% 98%;
-    --border: 250 24% 88%;
-    --input: 250 24% 88%;
+    --border: 250 22% 85%;
+    --input: 250 22% 85%;
     --ring: 258 82% 56%;
     --radius: 0.85rem;
   }
@@ -70,6 +70,12 @@
     content: "";
     @apply pointer-events-none fixed inset-0 -z-10 opacity-[0.05];
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M0 0h1v1H0V0zm30 30h1v1h-30v-1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* On the light theme the white dot texture is invisible — swap it for dark dots. */
+  .light .hub-backdrop::before {
+    @apply opacity-[0.04];
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M0 0h1v1H0V0zm30 30h1v1h-30v-1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
 
   /* Frosted-glass panel used for cards/modals across the app. */

@@ -1,4 +1,5 @@
-import { Dices, Lock, LogOut, Monitor, Moon, ScrollText, Sun } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Dices, Lock, LogOut, Moon, ScrollText, Sun } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
@@ -6,22 +7,81 @@ import { paths } from "@/routes/paths";
 import { authStore } from "@/store/auth-store";
 import { cn } from "@/utils/cn";
 
-const THEME_CYCLE = ["light", "dark", "system"] as const;
-const THEME_ICON = { light: Sun, dark: Moon, system: Monitor } as const;
+const THEME_OPTIONS = [
+  { value: "light", label: "Claro", icon: Sun },
+  { value: "dark", label: "Escuro", icon: Moon },
+] as const;
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const Icon = THEME_ICON[theme];
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const ActiveIcon = theme === "light" ? Sun : Moon;
 
-  const handleClick = () => {
-    const nextIndex = (THEME_CYCLE.indexOf(theme) + 1) % THEME_CYCLE.length;
-    setTheme(THEME_CYCLE[nextIndex]);
-  };
+  useEffect(() => {
+    if (!open) return;
+    const handlePointer = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
 
   return (
-    <Button variant="ghost" size="icon" onClick={handleClick} aria-label="Alternar tema">
-      <Icon className="size-4" />
-    </Button>
+    <div ref={containerRef} className="relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setOpen((current) => !current)}
+        aria-label="Tema"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <ActiveIcon className="size-4" />
+      </Button>
+      {open && (
+        <div
+          role="menu"
+          className="border-border/60 bg-popover text-popover-foreground animate-fade-in-up absolute right-0 z-50 mt-2 min-w-36 overflow-hidden rounded-lg border p-1 shadow-xl"
+        >
+          {THEME_OPTIONS.map((option) => {
+            const Icon = option.icon;
+            const isActive = theme === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={isActive}
+                onClick={() => {
+                  setTheme(option.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+                  isActive
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-foreground hover:bg-accent/10",
+                )}
+              >
+                <Icon className="size-4" />
+                {option.label}
+                {isActive && <Check className="ml-auto size-3.5" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

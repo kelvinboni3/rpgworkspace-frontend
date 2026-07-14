@@ -677,7 +677,7 @@ function BlockCard({
           focusBlockId={focusBlockId}
         />
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         {dragHandleAttributes && dragHandleListeners && (
           <button
             type="button"
@@ -1022,7 +1022,7 @@ function ImageBlockFigure({
             {caption}
           </figcaption>
         )}
-        <div className="absolute top-1 left-1 flex gap-0.5 opacity-0 transition-opacity group-hover/image:opacity-100">
+        <div className="absolute top-1 left-1 flex gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/image:opacity-100">
           {IMAGE_BLOCK_POSITIONS.map((option) => {
             const Icon = IMAGE_POSITION_ICONS[option];
             return (

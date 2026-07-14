@@ -286,7 +286,7 @@ export function CharacterDetailPage() {
 
   return (
     <div
-      className="dossier-theme animate-fade-in-up flex flex-1 flex-col gap-6"
+      className="dossier-theme bg-background animate-fade-in-up -mx-6 -my-8 flex flex-1 flex-col gap-6 px-6 py-8"
       style={characterAccentStyle(characterQuery.data?.accentColor)}
     >
       <div>
@@ -309,7 +309,7 @@ export function CharacterDetailPage() {
             {extractErrorMessage(characterQuery.error, "Não foi possível carregar este personagem.")}
           </div>
         ) : (
-          <div className="dossier-frame glass-panel flex items-start gap-5 px-6 py-5">
+          <div className="dossier-frame glass-panel flex flex-col gap-5 px-4 py-5 sm:flex-row sm:items-start sm:gap-5 sm:px-6">
             <input
               ref={portraitInputRef}
               type="file"
@@ -366,8 +366,8 @@ export function CharacterDetailPage() {
 
             <div className="min-w-0 flex-1 space-y-1">
               <div className="dossier-eyebrow">Ficha · Dossiê Pessoal</div>
-              <div className="flex items-center gap-3">
-                <h1 className="font-display text-primary text-3xl font-bold">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <h1 className="font-display text-primary text-2xl font-bold break-words sm:text-3xl">
                   {characterQuery.data?.name}
                 </h1>
                 {characterQuery.data && (
@@ -407,8 +407,8 @@ export function CharacterDetailPage() {
             </div>
 
             {characterQuery.data && (
-              <div className="flex shrink-0 flex-col items-end gap-2">
-                <div className="flex flex-wrap justify-end gap-2">
+              <div className="flex flex-col items-start gap-2 sm:shrink-0 sm:items-end">
+                <div className="flex flex-wrap gap-2 sm:justify-end">
                   {canAccessJournal && (
                     <Button
                       type="button"
@@ -494,7 +494,7 @@ export function CharacterDetailPage() {
                   )}
                 </div>
                 {retireMutation.isError && (
-                  <p className="text-destructive max-w-64 text-right text-xs">
+                  <p className="text-destructive max-w-64 text-left text-xs sm:text-right">
                     {extractErrorMessage(retireMutation.error, "Não foi possível encerrar o personagem.")}
                   </p>
                 )}
