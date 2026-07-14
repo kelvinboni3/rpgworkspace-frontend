@@ -74,7 +74,11 @@ export function PrivacyPage() {
           </li>
           <li>
             <strong className="text-foreground">Backblaze</strong> — armazenamento externo
-            das cópias de segurança diárias.
+            das cópias de segurança diárias;
+          </li>
+          <li>
+            <strong className="text-foreground">Google (Analytics)</strong> — métricas de
+            audiência do site (ver seção 6).
           </li>
         </ul>
       </LegalSection>
@@ -91,9 +95,20 @@ export function PrivacyPage() {
       <LegalSection title="6. Cookies e armazenamento local">
         <p>
           Usamos o armazenamento local do navegador (localStorage) para manter a sua
-          sessão e a preferência de tema. Hoje não usamos cookies de rastreamento. Se
-          adicionarmos ferramentas de análise de audiência ou publicidade, esta política
-          será atualizada antes.
+          sessão e a preferência de tema.
+        </p>
+        <p>
+          Também usamos o <strong className="text-foreground">Google Analytics</strong>{" "}
+          para entender, de forma agregada, como as pessoas chegam e usam o site (páginas
+          visitadas, origem do acesso, tipo de dispositivo). Ele utiliza cookies e
+          identificadores próprios do Google para isso. Não enviamos ao Google o conteúdo
+          dos seus diários nem seus dados de conta. Você pode bloquear esses cookies nas
+          configurações do navegador ou com extensões de privacidade — o Aventurário
+          continua funcionando normalmente.
+        </p>
+        <p>
+          Se adicionarmos outras ferramentas de análise ou publicidade, esta política será
+          atualizada antes.
         </p>
       </LegalSection>
 
