@@ -8,9 +8,11 @@ import { GmAreaComingSoonPage } from "@/pages/gm-area-coming-soon-page";
 import { LandingPage } from "@/pages/landing-page";
 import { LoginPage } from "@/pages/login-page";
 import { MyCharactersPage } from "@/pages/my-characters-page";
+import { PrivacyPage } from "@/pages/privacy-page";
 import { PublicCharacterPage } from "@/pages/public-character-page";
 import { RegisterPage } from "@/pages/register-page";
 import { ResetPasswordPage } from "@/pages/reset-password-page";
+import { TermsPage } from "@/pages/terms-page";
 import { SubscriptionPage } from "@/pages/subscription-page";
 import { WorkspaceDetailPage } from "@/pages/workspace-detail-page";
 import { paths } from "@/routes/paths";
@@ -24,6 +26,14 @@ export const router = createBrowserRouter([
   {
     path: "c/:token",
     element: <PublicCharacterPage />,
+  },
+  {
+    path: paths.terms,
+    element: <TermsPage />,
+  },
+  {
+    path: paths.privacy,
+    element: <PrivacyPage />,
   },
   {
     path: paths.login,

@@ -125,6 +125,15 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // O build injeta a landing pré-renderizada dentro de #root (SEO). Esse conteúdo só
+      // vale para "/" — em qualquer outra rota, limpa antes do React montar para não
+      // piscar a landing em cima de /login, /characters etc.
+      if (location.pathname !== "/") {
+        var ssgRoot = document.getElementById("root");
+        if (ssgRoot) ssgRoot.innerHTML = "";
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

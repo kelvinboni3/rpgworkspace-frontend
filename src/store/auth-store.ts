@@ -8,9 +8,12 @@ export type AuthUser = {
   defaultCharacterId: string | null;
 };
 
+// No pré-render do build (Node, ver entry-ssg.tsx) não existe localStorage — trate como deslogado.
+const hasStorage = typeof localStorage !== "undefined";
+
 export const authStore = {
   getAccessToken() {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
+    return hasStorage ? localStorage.getItem(ACCESS_TOKEN_KEY) : null;
   },
   getUser() {
     const storedUser = localStorage.getItem(USER_KEY);
@@ -44,6 +47,6 @@ export const authStore = {
     localStorage.removeItem(USER_KEY);
   },
   isAuthenticated() {
-    return Boolean(localStorage.getItem(ACCESS_TOKEN_KEY));
+    return hasStorage && Boolean(localStorage.getItem(ACCESS_TOKEN_KEY));
   },
 };

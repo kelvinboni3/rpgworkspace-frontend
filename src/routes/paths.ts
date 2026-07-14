@@ -5,6 +5,8 @@ export const paths = {
   register: "/register",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
+  terms: "/termos",
+  privacy: "/privacidade",
   characters: "/characters",
   gmArea: "/gm",
   gmWorkspaces: "/gm/workspaces",

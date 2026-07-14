@@ -426,6 +426,18 @@ export function LandingPage() {
                 <Mail aria-hidden className="size-4" />
                 Contato e suporte
               </a>
+              <Link
+                to={paths.terms}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Termos de Uso
+              </Link>
+              <Link
+                to={paths.privacy}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Política de Privacidade
+              </Link>
             </nav>
           </div>
           <p className="text-muted-foreground text-xs">

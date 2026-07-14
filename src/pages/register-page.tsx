@@ -146,6 +146,18 @@ export function RegisterPage() {
         </Button>
       </form>
 
+      <p className="text-muted-foreground mt-4 text-center text-xs">
+        Ao criar sua conta, você concorda com os{" "}
+        <Link to={paths.terms} className="hover:text-foreground underline underline-offset-2">
+          Termos de Uso
+        </Link>{" "}
+        e a{" "}
+        <Link to={paths.privacy} className="hover:text-foreground underline underline-offset-2">
+          Política de Privacidade
+        </Link>
+        .
+      </p>
+
       <p className="text-muted-foreground mt-6 text-center text-sm">
         Já tem uma conta?{" "}
         <Link to={paths.login} className="text-primary font-medium hover:underline">
