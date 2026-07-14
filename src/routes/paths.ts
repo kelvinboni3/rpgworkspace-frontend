@@ -1,5 +1,6 @@
 export const paths = {
   home: "/",
+  landing: "/",
   login: "/login",
   register: "/register",
   forgotPassword: "/forgot-password",
@@ -11,4 +12,5 @@ export const paths = {
   workspace: (workspaceId: string) => `/workspaces/${workspaceId}`,
   campaign: (campaignId: string) => `/campaigns/${campaignId}`,
   character: (characterId: string) => `/characters/${characterId}`,
+  publicCharacter: (token: string) => `/c/${token}`,
 } as const;

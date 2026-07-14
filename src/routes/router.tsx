@@ -5,8 +5,10 @@ import { CampaignDetailPage } from "@/pages/campaign-detail-page";
 import { CharacterDetailPage } from "@/pages/character-detail-page";
 import { ForgotPasswordPage } from "@/pages/forgot-password-page";
 import { GmAreaComingSoonPage } from "@/pages/gm-area-coming-soon-page";
+import { LandingPage } from "@/pages/landing-page";
 import { LoginPage } from "@/pages/login-page";
 import { MyCharactersPage } from "@/pages/my-characters-page";
+import { PublicCharacterPage } from "@/pages/public-character-page";
 import { RegisterPage } from "@/pages/register-page";
 import { ResetPasswordPage } from "@/pages/reset-password-page";
 import { SubscriptionPage } from "@/pages/subscription-page";
@@ -15,6 +17,14 @@ import { paths } from "@/routes/paths";
 import { ProtectedRoute } from "@/routes/protected-route";
 
 export const router = createBrowserRouter([
+  {
+    path: paths.landing,
+    element: <LandingPage />,
+  },
+  {
+    path: "c/:token",
+    element: <PublicCharacterPage />,
+  },
   {
     path: paths.login,
     element: <LoginPage />,
@@ -37,10 +47,6 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          {
-            index: true,
-            element: <MyCharactersPage />,
-          },
           {
             path: "characters",
             element: <MyCharactersPage />,

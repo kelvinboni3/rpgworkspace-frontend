@@ -5,6 +5,7 @@ export type CharacterTab = {
   characterId: string;
   name: string;
   order: number;
+  isPublic: boolean;
   createdAt: string;
   updatedAt: string | null;
 };
@@ -33,6 +34,13 @@ export const CharacterTabService = {
 
   async update(id: string, data: UpdateCharacterTabRequest) {
     const response = await apiClient.put<CharacterTab>(`/character-tabs/${id}`, data);
+    return response.data;
+  },
+
+  async setVisibility(id: string, isPublic: boolean) {
+    const response = await apiClient.put<CharacterTab>(`/character-tabs/${id}/visibility`, {
+      isPublic,
+    });
     return response.data;
   },
 

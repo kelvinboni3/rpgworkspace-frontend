@@ -51,7 +51,7 @@ export function RegisterPage() {
         email: data.email,
         defaultCharacterId: data.defaultCharacterId,
       });
-      navigate(paths.home, { replace: true });
+      navigate(paths.characters, { replace: true });
     },
   });
 

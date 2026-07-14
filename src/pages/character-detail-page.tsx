@@ -10,6 +10,7 @@ import {
   NotebookTabs,
   Plus,
   RotateCcw,
+  Share2,
   Sparkles,
   TriangleAlert,
   UserRound,
@@ -23,6 +24,7 @@ import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { Label } from "@/components/ui/label";
 import { CharacterDashboardSummary } from "@/components/campaign/character-dashboard-summary";
 import { CharacterImportDialog } from "@/components/campaign/character-import-dialog";
+import { ShareCharacterDialog } from "@/components/campaign/share-character-dialog";
 import { CharacterInterviewDialog } from "@/components/campaign/character-interview-dialog";
 import { CharacterSearchBar } from "@/components/campaign/character-search-bar";
 import { AccentColorPicker, CharacterTabSection } from "@/components/campaign/character-tab-section";
@@ -90,6 +92,7 @@ export function CharacterDetailPage() {
   const [isPortraitLightboxOpen, setIsPortraitLightboxOpen] = useState(false);
   const [isInterviewOpen, setIsInterviewOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   const handleNavigateToBlock = async (blockId: string) => {
     const block = await CharacterTabBlockService.getById(blockId);
@@ -409,6 +412,18 @@ export function CharacterDetailPage() {
             {characterQuery.data && (
               <div className="flex flex-col items-start gap-2 sm:shrink-0 sm:items-end">
                 <div className="flex flex-wrap gap-2 sm:justify-end">
+                  {isCharacterOwner && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsShareOpen(true)}
+                      title="Compartilhar personagem com um link público read-only"
+                    >
+                      <Share2 className="size-3.5" />
+                      Compartilhar
+                    </Button>
+                  )}
                   {canAccessJournal && (
                     <Button
                       type="button"
@@ -734,6 +749,15 @@ export function CharacterDetailPage() {
             onApplied={(tabId) => setActiveTab(tabId)}
           />
         </>
+      )}
+
+      {isShareOpen && isCharacterOwner && characterQuery.data && (
+        <ShareCharacterDialog
+          characterId={characterId}
+          shareToken={characterQuery.data.publicShareToken}
+          tabs={tabs}
+          onClose={() => setIsShareOpen(false)}
+        />
       )}
     </div>
   );

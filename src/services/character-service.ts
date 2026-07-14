@@ -36,6 +36,7 @@ export type Character = {
   recapText: string | null;
   recapGeneratedAt: string | null;
   accentColor: BlockAccentColor | null;
+  publicShareToken: string | null;
   createdAt: string;
   updatedAt: string | null;
 };
@@ -183,6 +184,16 @@ export const CharacterService = {
     const response = await apiClient.get<Blob>(`/characters/${characterId}/export/markdown`, {
       responseType: "blob",
     });
+    return response.data;
+  },
+
+  async enableShare(id: string) {
+    const response = await apiClient.post<Character>(`/characters/${id}/share`);
+    return response.data;
+  },
+
+  async disableShare(id: string) {
+    const response = await apiClient.delete<Character>(`/characters/${id}/share`);
     return response.data;
   },
 };

@@ -44,7 +44,7 @@ export function LoginPage() {
       });
       const redirectTo =
         explicitRedirect ??
-        (data.defaultCharacterId ? paths.character(data.defaultCharacterId) : paths.home);
+        (data.defaultCharacterId ? paths.character(data.defaultCharacterId) : paths.characters);
       navigate(redirectTo, { replace: true });
     },
   });

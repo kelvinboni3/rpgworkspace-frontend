@@ -103,7 +103,7 @@ export function WorkspaceDetailPage() {
     <div className="animate-fade-in-up flex flex-1 flex-col gap-6">
       <div>
         <Link
-          to={paths.home}
+          to={paths.gmWorkspaces}
           className="text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5 text-sm transition-colors"
         >
           <ArrowLeft className="size-4" />
