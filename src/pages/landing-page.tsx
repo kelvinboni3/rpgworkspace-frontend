@@ -64,18 +64,17 @@ const RPG_SYSTEMS = [
   "Sistema autoral da sua mesa",
 ];
 
-// Exporte os prints reais do app para Front/public/screenshots/ com estes nomes.
-// Enquanto os arquivos não existirem, a seção se esconde sozinha (onError).
+// Prints reais do app em Front/public/screenshots/. Se um arquivo sumir, a seção se esconde (onError).
 const SCREENSHOTS: Array<{ src: string; alt: string; caption: string }> = [
   {
-    src: "/screenshots/diario.png",
-    alt: "Diário de personagem no Aventurário, com abas de história, aliados e segredos organizadas em blocos",
-    caption: "O diário do personagem em uso real",
+    src: "/screenshots/ficha.png",
+    alt: "Ficha de personagem no Aventurário com recap da história gerado por IA e histórico de atualizações recentes",
+    caption: "A ficha do personagem, com recap da história gerado por IA",
   },
   {
-    src: "/screenshots/ficha-publica.png",
-    alt: "Ficha pública de personagem gerada pelo Aventurário, pronta para compartilhar com a mesa por link",
-    caption: "A ficha pública que você compartilha com a mesa",
+    src: "/screenshots/diario.png",
+    alt: "Diário de personagem no Aventurário organizado em abas — pessoas, teorias, operações — com blocos detalhados",
+    caption: "O diário em abas e blocos: pessoas, teorias, operações e o que sua mesa precisar",
   },
 ];
 
