@@ -79,15 +79,9 @@ const SCREENSHOTS: Array<{ src: string; alt: string; caption: string }> = [
   },
 ];
 
-const TESTIMONIALS: Array<{ quote: string; author: string }> = [
-  {
-    quote: "O Notion e o Trello eram difíceis de usar. Isso ficou muito fácil.",
-    author: "Beta tester · jogador de RPG de mesa",
-  },
-  {
-    quote: "O resultado é muito bonito.",
-    author: "Beta tester · sobre o diário do personagem",
-  },
+const TESTIMONIALS: string[] = [
+  "O Notion e o Trello eram difíceis de usar. Isso ficou muito fácil.",
+  "O resultado é muito bonito.",
 ];
 
 const PLAN_INCLUDES = [
@@ -278,20 +272,17 @@ export function LandingPage() {
               Quem testou, aprovou
             </h2>
             <p className="text-muted-foreground max-w-md text-sm sm:text-base">
-              Antes do lançamento, o Aventurário passou por um beta com 5 mestres e
-              jogadores de mesas reais.
+              O que os primeiros jogadores disseram depois de usar o Aventurário em suas
+              campanhas.
             </p>
           </div>
           <div className="grid w-full gap-4 sm:grid-cols-2">
-            {TESTIMONIALS.map((testimonial) => (
-              <figure key={testimonial.quote} className="glass-panel flex flex-col gap-4 p-6">
+            {TESTIMONIALS.map((quote) => (
+              <figure key={quote} className="glass-panel flex flex-col gap-4 p-6">
                 <Quote aria-hidden className="text-primary size-5" />
                 <blockquote className="font-display text-lg font-medium text-balance">
-                  “{testimonial.quote}”
+                  “{quote}”
                 </blockquote>
-                <figcaption className="text-muted-foreground mt-auto text-sm">
-                  {testimonial.author}
-                </figcaption>
               </figure>
             ))}
           </div>
@@ -372,14 +363,9 @@ export function LandingPage() {
       <footer className="border-border/60 border-t">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Dices aria-hidden className="size-4" />
-                <span className="font-display font-semibold">Aventurário</span>
-              </div>
-              <p className="text-muted-foreground max-w-xs text-xs">
-                Feito por um mestre, para seus jogadores.
-              </p>
+            <div className="flex items-center gap-2">
+              <Dices aria-hidden className="size-4" />
+              <span className="font-display font-semibold">Aventurário</span>
             </div>
             <nav aria-label="Links do rodapé" className="flex flex-col gap-2 text-sm">
               <a
@@ -392,7 +378,7 @@ export function LandingPage() {
             </nav>
           </div>
           <p className="text-muted-foreground text-xs">
-            © {new Date().getFullYear()} Aventurário · Feito para mestres e jogadores
+            © {new Date().getFullYear()} Aventurário · Feito por um mestre, para seus jogadores
           </p>
         </div>
       </footer>

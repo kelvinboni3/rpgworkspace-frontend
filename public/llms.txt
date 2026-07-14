@@ -6,7 +6,7 @@
 
 - Aplicativo web (PWA instalável) para jogadores de RPG de mesa registrarem a história, os aliados, as teorias e os segredos dos seus personagens ao longo de uma campanha.
 - Livre de sistema: funciona com D&D 5e, Tormenta20, Ordem Paranormal, Call of Cthulhu e sistemas autorais.
-- Feito por um mestre de RPG brasileiro para os jogadores da própria mesa; validado em beta com 5 mestres e jogadores.
+- Feito por um mestre de RPG brasileiro para os jogadores da própria mesa; testado por jogadores reais antes do lançamento.
 
 ## Funcionalidades principais
 
