@@ -1,16 +1,18 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   BookOpenText,
   Check,
   Dices,
   Download,
   Mail,
+  Maximize2,
   Mic,
   Quote,
   ScrollText,
   Share2,
   Sparkles,
   Swords,
+  X,
 } from "lucide-react";
 import { Link, Navigate } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -64,7 +66,7 @@ const RPG_SYSTEMS = [
   "Sistema autoral da sua mesa",
 ];
 
-// Prints reais do app em Front/public/screenshots/. Se um arquivo sumir, a seção se esconde (onError).
+// Prints reais do app em Front/public/screenshots/.
 const SCREENSHOTS: Array<{ src: string; alt: string; caption: string }> = [
   {
     src: "/screenshots/ficha.png",
@@ -126,10 +128,22 @@ const FAQ: Array<{ question: string; answer: string }> = [
 ];
 
 function ProductShowcase() {
-  const [failed, setFailed] = useState<Record<string, boolean>>({});
-  const shots = SCREENSHOTS.filter((shot) => !failed[shot.src]);
+  const [expanded, setExpanded] = useState<(typeof SCREENSHOTS)[number] | null>(null);
 
-  if (shots.length === 0) return null;
+  // Fecha o lightbox com Esc e trava o scroll da página enquanto ele está aberto.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [expanded]);
 
   return (
     <section className="flex flex-col items-center gap-8 pb-20">
@@ -137,21 +151,59 @@ function ProductShowcase() {
         Veja o Aventurário por dentro
       </h2>
       <div className="grid w-full gap-6 sm:grid-cols-2">
-        {shots.map((shot) => (
+        {SCREENSHOTS.map((shot) => (
           <figure key={shot.src} className="glass-panel flex flex-col gap-3 overflow-hidden p-3">
-            <img
-              src={shot.src}
-              alt={shot.alt}
-              loading="lazy"
-              className="border-border/60 w-full rounded-lg border object-cover"
-              onError={() => setFailed((prev) => ({ ...prev, [shot.src]: true }))}
-            />
+            <button
+              type="button"
+              onClick={() => setExpanded(shot)}
+              aria-label={`Ampliar imagem: ${shot.caption}`}
+              className="group relative cursor-zoom-in"
+            >
+              <img
+                src={shot.src}
+                alt={shot.alt}
+                loading="lazy"
+                className="border-border/60 w-full rounded-lg border object-cover"
+              />
+              <span
+                aria-hidden
+                className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/0 opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100"
+              >
+                <Maximize2 className="size-7 text-white" />
+              </span>
+            </button>
             <figcaption className="text-muted-foreground pb-1 text-center text-xs">
-              {shot.caption}
+              {shot.caption} · clique para ampliar
             </figcaption>
           </figure>
         ))}
       </div>
+
+      {expanded && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={expanded.caption}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/85 p-4 backdrop-blur-sm sm:p-8"
+          onClick={() => setExpanded(null)}
+        >
+          <button
+            type="button"
+            aria-label="Fechar imagem ampliada"
+            className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
+            onClick={() => setExpanded(null)}
+          >
+            <X className="size-5" />
+          </button>
+          <img
+            src={expanded.src}
+            alt={expanded.alt}
+            className="max-h-[85vh] w-auto max-w-full rounded-lg shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          />
+          <p className="text-sm text-white/80">{expanded.caption}</p>
+        </div>
+      )}
     </section>
   );
 }
