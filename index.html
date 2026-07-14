@@ -3,10 +3,105 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Aventurário</title>
+    <title>Aventurário — Diário de personagem de RPG com IA</title>
+    <meta
+      name="description"
+      content="O diário definitivo do seu personagem de RPG: anote sessões, organize a história e deixe a IA gerar recaps. Funciona offline, com D&D, Tormenta20 e qualquer sistema. 7 dias grátis."
+    />
+    <link rel="canonical" href="https://aventurario.tech/" />
+
+    <!-- Open Graph (preview em WhatsApp, Instagram, Discord etc.) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Aventurário" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:url" content="https://aventurario.tech/" />
+    <meta property="og:title" content="Aventurário — Diário de personagem de RPG com IA" />
+    <meta
+      property="og:description"
+      content="Guarde a história, os segredos e a jornada do seu personagem num só lugar — com IA, offline e pronto para compartilhar. Teste grátis por 7 dias, sem cartão."
+    />
+    <meta property="og:image" content="https://aventurario.tech/og-cover.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#0e0c18" />
+
+    <!-- Dados estruturados: ajudam Google (rich snippets) e IAs generativas (GEO/AEO) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Aventurário",
+        "url": "https://aventurario.tech/",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Web, Android, iOS, Windows (PWA)",
+        "inLanguage": "pt-BR",
+        "description": "Diário de personagem para RPG de mesa: anotações organizadas em abas e blocos, IA para estruturar notas e gerar recaps, ditado por voz, funcionamento offline (PWA), link público da ficha e exportação em Markdown. Compatível com D&D 5e, Tormenta20 e qualquer sistema.",
+        "offers": {
+          "@type": "Offer",
+          "price": "14.90",
+          "priceCurrency": "BRL",
+          "description": "Assinatura mensal com 7 dias de teste grátis, sem cartão de crédito."
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Funciona com D&D 5e, Tormenta20 e outros sistemas?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sim. O diário é livre de regras: você organiza história, aliados e segredos do seu jeito, então funciona com D&D 5e, Tormenta20, Ordem Paranormal, Call of Cthulhu ou o sistema autoral da sua mesa."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Quanto custa o Aventurário?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "R$ 14,90/mês, com 7 dias de teste grátis sem precisar de cartão de crédito. A assinatura inclui personagens ilimitados, todos os recursos de IA e o diário completo. Cancele quando quiser."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Preciso saber usar IA?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Não. Os recursos de IA funcionam com um clique: transformam anotações soltas em registros estruturados e geram recaps da última sessão. Você não escreve prompt nenhum."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Funciona no celular e sem internet?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sim. O Aventurário é um PWA: instale como app no celular ou no PC e use o diário na mesa mesmo sem internet."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "O que acontece com meus dados se eu cancelar?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Seus dados são seus. Você pode exportar o diário inteiro em Markdown a qualquer momento, sem amarras."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Sou mestre — o Aventurário serve para mim?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "A versão atual é focada no diário do jogador — feita por um mestre para os jogadores da mesa. Uma área dedicada ao mestre está em desenvolvimento."
+            }
+          }
+        ]
+      }
+    </script>
     <script>
       // Apply the saved theme before first paint so there's no white flash on load.
       // Anything other than an explicit "light" (including the retired "system") = dark.

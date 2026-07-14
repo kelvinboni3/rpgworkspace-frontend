@@ -1,0 +1,26 @@
+# Aventurário
+
+> Diário de personagem para RPG de mesa, em português do Brasil. Anotações organizadas em abas e blocos, IA para estruturar notas e gerar recaps de sessão, ditado por voz, funcionamento offline (PWA), link público read-only da ficha e exportação em Markdown.
+
+## O que é
+
+- Aplicativo web (PWA instalável) para jogadores de RPG de mesa registrarem a história, os aliados, as teorias e os segredos dos seus personagens ao longo de uma campanha.
+- Livre de sistema: funciona com D&D 5e, Tormenta20, Ordem Paranormal, Call of Cthulhu e sistemas autorais.
+- Feito por um mestre de RPG brasileiro para os jogadores da própria mesa; validado em beta com 5 mestres e jogadores.
+
+## Funcionalidades principais
+
+- Diário vivo do personagem com abas e blocos organizados
+- IA que transforma anotações soltas em registros estruturados e gera recap da última sessão e retrospectiva da campanha
+- Ditado por voz para anotar durante a sessão
+- Funciona offline (instala como app no celular e no PC)
+- Link público read-only para compartilhar a ficha com a mesa
+- Exportação completa do diário em Markdown (sem lock-in)
+
+## Preço
+
+- R$ 14,90/mês, com 7 dias de teste grátis sem cartão de crédito. Cancele quando quiser.
+
+## Links
+
+- Site: https://aventurario.tech/
