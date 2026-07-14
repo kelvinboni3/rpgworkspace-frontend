@@ -427,7 +427,7 @@ export function CharacterTabSection({
   };
 
   return (
-    <div className="dossier-frame glass-panel flex flex-col gap-5 px-6 py-6 sm:px-8 sm:py-7">
+    <div className="dossier-frame glass-panel flex flex-col gap-5 px-4 py-5 sm:px-8 sm:py-7">
       <div className="flex min-h-8 items-center justify-between gap-2">
         {isRenamingTab ? (
           <form
@@ -667,7 +667,10 @@ function BlockCard({
   }
 
   return (
-    <div id={`block-${block.id}`} className="group flex items-start gap-2">
+    <div
+      id={`block-${block.id}`}
+      className="group flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-2"
+    >
       <div className="min-w-0 flex-1">
         <BlockView
           block={block}
@@ -677,13 +680,15 @@ function BlockCard({
           focusBlockId={focusBlockId}
         />
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+      {/* Mobile: actions sit in a right-aligned row *below* the block so they never steal
+          content width. Desktop: they float to the right and only appear on hover/focus. */}
+      <div className="flex shrink-0 items-center gap-0.5 self-end opacity-100 transition-opacity sm:self-auto sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         {dragHandleAttributes && dragHandleListeners && (
           <button
             type="button"
             title="Arrastar pra reordenar"
             aria-label="Arrastar pra reordenar"
-            className="text-muted-foreground hover:text-foreground hover:bg-accent/10 cursor-grab touch-none rounded-sm p-1.5 active:cursor-grabbing"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent/10 hidden cursor-grab touch-none rounded-sm p-1.5 active:cursor-grabbing sm:inline-flex"
             {...dragHandleAttributes}
             {...dragHandleListeners}
           >
