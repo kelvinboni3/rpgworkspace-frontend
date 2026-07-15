@@ -8,33 +8,42 @@ import type { SuggestedBlock } from "@/services/note-structuring-service";
 
 const PAYLOAD_TYPES: CharacterTabBlockTypeValue[] = [CharacterTabBlockType.Card, CharacterTabBlockType.Table];
 
-export type AppliedResult = {
+type BlockSnapshot = { title: string | null; content: string | null; payloadJson: string | null };
+
+type ItemUndo =
+  | { kind: "restore-block"; blockId: string; previous: BlockSnapshot }
+  | { kind: "delete-block"; blockId: string; createdTabId: string | null };
+
+export type AppliedItem = {
   mode: "update" | "create";
   tabName: string;
   type: CharacterTabBlockTypeValue;
   title: string | null;
+  undone: boolean;
+  undo: ItemUndo;
 };
 
-export type UndoAction =
-  | {
-      type: "restore-block";
-      blockId: string;
-      previous: { title: string | null; content: string | null; payloadJson: string | null };
-    }
-  | { type: "delete-block"; blockId: string }
-  | { type: "delete-tab"; tabId: string };
+export type AppliedBatch = {
+  items: AppliedItem[];
+  firstTabId: string | null;
+};
+
+export const hasUndoableItems = (batch: AppliedBatch) => batch.items.some((item) => !item.undone);
 
 /** Applies AI suggestions (from note structuring, the creation interview, or a sheet import)
- * against the character's real tabs/blocks, tracking enough to undo the whole batch. */
+ * against the character's real tabs/blocks, tracking enough to undo each item individually
+ * (or all of them). Every created block records its own delete-block undo; a block that landed
+ * in a tab created by this same batch also records that tab's id, so undoing the last item of
+ * the tab can clean the tab up too (no reliance on delete-tab cascade — that would also wipe
+ * blocks the user added to the new tab by hand in the meantime). */
 export async function applySuggestions(
   characterId: string,
   tabs: { id: string; name: string }[],
   suggestions: SuggestedBlock[],
-): Promise<{ applied: AppliedResult[]; firstTabId: string | null; undo: UndoAction[] }> {
+): Promise<AppliedBatch> {
   const newTabByName = new Map<string, { id: string; name: string }>();
   const createdTabIds = new Set<string>();
-  const applied: AppliedResult[] = [];
-  const undo: UndoAction[] = [];
+  const items: AppliedItem[] = [];
   let firstTabId: string | null = null;
 
   for (const suggestion of suggestions) {
@@ -42,15 +51,6 @@ export async function applySuggestions(
 
     if (suggestion.targetBlockId && suggestion.targetTabId) {
       const previousBlock = await CharacterTabBlockService.getById(suggestion.targetBlockId);
-      undo.push({
-        type: "restore-block",
-        blockId: suggestion.targetBlockId,
-        previous: {
-          title: previousBlock.title,
-          content: previousBlock.content,
-          payloadJson: previousBlock.payloadJson,
-        },
-      });
 
       await CharacterTabBlockService.update(suggestion.targetBlockId, {
         title: suggestion.title,
@@ -59,7 +59,22 @@ export async function applySuggestions(
       });
 
       const tabName = tabs.find((t) => t.id === suggestion.targetTabId)?.name ?? "?";
-      applied.push({ mode: "update", tabName, type: suggestion.type, title: suggestion.title });
+      items.push({
+        mode: "update",
+        tabName,
+        type: suggestion.type,
+        title: suggestion.title,
+        undone: false,
+        undo: {
+          kind: "restore-block",
+          blockId: suggestion.targetBlockId,
+          previous: {
+            title: previousBlock.title,
+            content: previousBlock.content,
+            payloadJson: previousBlock.payloadJson,
+          },
+        },
+      });
       firstTabId ??= suggestion.targetTabId;
       continue;
     }
@@ -77,7 +92,6 @@ export async function applySuggestions(
         const createdTab = await CharacterTabService.create(characterId, { name });
         newTabByName.set(name, { id: createdTab.id, name: createdTab.name });
         createdTabIds.add(createdTab.id);
-        undo.push({ type: "delete-tab", tabId: createdTab.id });
         tabId = createdTab.id;
         tabName = createdTab.name;
       }
@@ -90,27 +104,62 @@ export async function applySuggestions(
       payloadJson,
     });
 
-    // A block created inside a tab we just created this batch is already covered by that
-    // tab's own "delete-tab" undo action (deleting the tab cascades to its blocks).
-    if (!createdTabIds.has(tabId)) {
-      undo.push({ type: "delete-block", blockId: createdBlock.id });
-    }
-
-    applied.push({ mode: "create", tabName, type: suggestion.type, title: suggestion.title });
+    items.push({
+      mode: "create",
+      tabName,
+      type: suggestion.type,
+      title: suggestion.title,
+      undone: false,
+      undo: {
+        kind: "delete-block",
+        blockId: createdBlock.id,
+        createdTabId: createdTabIds.has(tabId) ? tabId : null,
+      },
+    });
     firstTabId ??= tabId;
   }
 
-  return { applied, firstTabId, undo };
+  return { items, firstTabId };
 }
 
-export async function undoSuggestions(actions: UndoAction[]): Promise<void> {
-  for (const action of [...actions].reverse()) {
-    if (action.type === "restore-block") {
-      await CharacterTabBlockService.update(action.blockId, action.previous);
-    } else if (action.type === "delete-block") {
-      await CharacterTabBlockService.remove(action.blockId);
-    } else {
-      await CharacterTabService.remove(action.tabId);
+async function undoSingle(items: AppliedItem[], index: number): Promise<void> {
+  const item = items[index];
+  if (item.undone) return;
+
+  if (item.undo.kind === "restore-block") {
+    await CharacterTabBlockService.update(item.undo.blockId, item.undo.previous);
+  } else {
+    await CharacterTabBlockService.remove(item.undo.blockId);
+  }
+  items[index] = { ...item, undone: true };
+
+  // Se este era o último item ainda aplicado numa aba que o lote criou, remove a aba também —
+  // mas só se ela estiver realmente vazia (o usuário pode ter criado blocos nela à mão depois).
+  if (item.undo.kind === "delete-block" && item.undo.createdTabId) {
+    const tabId = item.undo.createdTabId;
+    const stillUsed = items.some(
+      (other) => !other.undone && other.undo.kind === "delete-block" && other.undo.createdTabId === tabId,
+    );
+    if (!stillUsed) {
+      const remainingBlocks = await CharacterTabBlockService.getAllByTab(tabId);
+      if (remainingBlocks.length === 0) await CharacterTabService.remove(tabId);
     }
   }
+}
+
+/** Desfaz um único item aplicado; devolve o lote atualizado (imutável) para guardar no estado. */
+export async function undoItem(batch: AppliedBatch, index: number): Promise<AppliedBatch> {
+  const items = [...batch.items];
+  await undoSingle(items, index);
+  return { ...batch, items };
+}
+
+/** Desfaz todos os itens ainda aplicados, em ordem reversa — se duas sugestões atualizaram o
+ * mesmo bloco, restaurar da última para a primeira devolve o conteúdo original. */
+export async function undoRemaining(batch: AppliedBatch): Promise<AppliedBatch> {
+  const items = [...batch.items];
+  for (let index = items.length - 1; index >= 0; index--) {
+    await undoSingle(items, index);
+  }
+  return { ...batch, items };
 }

@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, FileUp, Loader2, ScrollText, TriangleAlert, X } from "lucide-react";
+import { FileUp, Loader2, ScrollText, TriangleAlert, X } from "lucide-react";
 import { isAxiosError } from "axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { CHARACTER_TAB_BLOCK_TYPE_LABELS } from "@/services/character-tab-block-service";
+import { AppliedResultsList } from "@/components/campaign/applied-results-list";
 import { NoteStructuringService } from "@/services/note-structuring-service";
-import { applySuggestions, undoSuggestions, type AppliedResult, type UndoAction } from "@/services/note-suggestions";
+import {
+  applySuggestions,
+  hasUndoableItems,
+  undoItem,
+  undoRemaining,
+  type AppliedBatch,
+} from "@/services/note-suggestions";
 import { extractErrorMessage } from "@/utils/api-error";
 
 const SHEET_MAX_LENGTH = 4000;
@@ -26,9 +32,8 @@ export function CharacterImportDialog({
   onApplied: (tabId: string) => void;
 }) {
   const [sheetText, setSheetText] = useState("");
-  const [results, setResults] = useState<AppliedResult[] | null>(null);
+  const [batch, setBatch] = useState<AppliedBatch | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
-  const [undoActions, setUndoActions] = useState<UndoAction[] | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -49,25 +54,34 @@ export function CharacterImportDialog({
   const importMutation = useMutation({
     mutationFn: async () => {
       const { summary, suggestions } = await NoteStructuringService.importSheet(characterId, sheetText);
-      const { applied, firstTabId, undo } = await applySuggestions(characterId, tabs, suggestions);
-      return { applied, firstTabId, summary, undo };
+      const applied = await applySuggestions(characterId, tabs, suggestions);
+      return { applied, summary };
     },
-    onSuccess: ({ applied, firstTabId, summary, undo }) => {
+    onSuccess: ({ applied, summary }) => {
       invalidateCharacterQueries();
-      if (firstTabId) onApplied(firstTabId);
-      setResults(applied);
+      if (applied.firstTabId) onApplied(applied.firstTabId);
+      setBatch(applied);
       setSummary(summary);
-      setUndoActions(undo);
     },
   });
 
-  const undoMutation = useMutation({
-    mutationFn: undoSuggestions,
+  const undoAllMutation = useMutation({
+    mutationFn: () => undoRemaining(batch!),
     onSuccess: () => {
       invalidateCharacterQueries();
       reset();
     },
   });
+
+  const undoItemMutation = useMutation({
+    mutationFn: (index: number) => undoItem(batch!, index),
+    onSuccess: (updatedBatch) => {
+      invalidateCharacterQueries();
+      setBatch(updatedBatch);
+    },
+  });
+
+  const undoIsPending = undoAllMutation.isPending || undoItemMutation.isPending;
 
   const errorMessage = importMutation.isError
     ? isAxiosError(importMutation.error) && importMutation.error.response?.status === 503
@@ -75,17 +89,16 @@ export function CharacterImportDialog({
       : extractErrorMessage(importMutation.error, "Não foi possível importar a ficha.")
     : null;
 
-  const undoErrorMessage = undoMutation.isError
-    ? extractErrorMessage(undoMutation.error, "Não foi possível desfazer.")
-    : null;
+  const undoError = undoAllMutation.error ?? undoItemMutation.error;
+  const undoErrorMessage = undoError ? extractErrorMessage(undoError, "Não foi possível desfazer.") : null;
 
   const reset = () => {
     setSheetText("");
-    setResults(null);
+    setBatch(null);
     setSummary(null);
-    setUndoActions(null);
     importMutation.reset();
-    undoMutation.reset();
+    undoAllMutation.reset();
+    undoItemMutation.reset();
   };
 
   const handleClose = () => {
@@ -116,7 +129,7 @@ export function CharacterImportDialog({
           </button>
         </div>
 
-        {results ? (
+        {batch ? (
           <>
             {summary && (
               <div className="border-primary/30 bg-primary/5 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
@@ -124,23 +137,17 @@ export function CharacterImportDialog({
                 <span>{summary}</span>
               </div>
             )}
-            {results.length === 0 ? (
+            {batch.items.length === 0 ? (
               <p className="text-muted-foreground py-6 text-center text-sm italic">
                 A IA não reconheceu isso como uma ficha de personagem.
               </p>
             ) : (
-              <ul className="flex flex-col gap-2">
-                {results.map((r, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
-                    <CheckCircle2 className="text-primary mt-0.5 size-3.5 shrink-0" />
-                    <span>
-                      <strong>{r.mode === "update" ? "Atualizado" : "Criado"}</strong> em {r.tabName}
-                      {r.title ? ` · ${r.title}` : ""}
-                      <span className="text-muted-foreground"> ({CHARACTER_TAB_BLOCK_TYPE_LABELS[r.type]})</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <AppliedResultsList
+                batch={batch}
+                onUndoItem={(index) => undoItemMutation.mutate(index)}
+                undoingIndex={undoItemMutation.isPending ? (undoItemMutation.variables ?? null) : null}
+                disabled={undoIsPending}
+              />
             )}
 
             {undoErrorMessage && (
@@ -151,18 +158,18 @@ export function CharacterImportDialog({
             )}
 
             <div className="flex justify-end gap-2">
-              {undoActions && undoActions.length > 0 && (
+              {hasUndoableItems(batch) && (
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => undoMutation.mutate(undoActions)}
-                  disabled={undoMutation.isPending}
+                  onClick={() => undoAllMutation.mutate()}
+                  disabled={undoIsPending}
                 >
-                  {undoMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                  Desfazer
+                  {undoAllMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                  Desfazer tudo
                 </Button>
               )}
-              <Button type="button" onClick={handleClose} disabled={undoMutation.isPending}>
+              <Button type="button" onClick={handleClose} disabled={undoIsPending}>
                 Concluir
               </Button>
             </div>

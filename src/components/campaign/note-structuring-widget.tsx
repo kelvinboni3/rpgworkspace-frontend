@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
-  CheckCircle2,
   Loader2,
   Lock,
   Mic,
@@ -17,9 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { paths } from "@/routes/paths";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
-import { CHARACTER_TAB_BLOCK_TYPE_LABELS } from "@/services/character-tab-block-service";
+import { AppliedResultsList } from "@/components/campaign/applied-results-list";
 import { NoteStructuringService } from "@/services/note-structuring-service";
-import { applySuggestions, undoSuggestions, type AppliedResult, type UndoAction } from "@/services/note-suggestions";
+import {
+  applySuggestions,
+  hasUndoableItems,
+  undoItem,
+  undoRemaining,
+  type AppliedBatch,
+} from "@/services/note-suggestions";
 import { extractErrorMessage } from "@/utils/api-error";
 import { cn } from "@/utils/cn";
 
@@ -73,9 +78,8 @@ export function NoteStructuringWidget({
   const [isNew, setIsNew] = useState(() => localStorage.getItem(SEEN_STORAGE_KEY) !== "1");
   const [phrase, setPhrase] = useState(() => pickPhrase());
   const [noteText, setNoteText] = useState("");
-  const [results, setResults] = useState<AppliedResult[] | null>(null);
+  const [batch, setBatch] = useState<AppliedBatch | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
-  const [undoActions, setUndoActions] = useState<UndoAction[] | null>(null);
   const queryClient = useQueryClient();
 
   const invalidateCharacterQueries = () => {
@@ -97,15 +101,14 @@ export function NoteStructuringWidget({
   const structureAndApplyMutation = useMutation({
     mutationFn: async () => {
       const { summary, suggestions } = await NoteStructuringService.structure(characterId, noteText);
-      const { applied, firstTabId, undo } = await applySuggestions(characterId, tabs, suggestions);
-      return { applied, firstTabId, summary, undo };
+      const applied = await applySuggestions(characterId, tabs, suggestions);
+      return { applied, summary };
     },
-    onSuccess: ({ applied, firstTabId, summary, undo }) => {
+    onSuccess: ({ applied, summary }) => {
       invalidateCharacterQueries();
-      if (firstTabId) onApplied(firstTabId);
-      setResults(applied);
+      if (applied.firstTabId) onApplied(applied.firstTabId);
+      setBatch(applied);
       setSummary(summary);
-      setUndoActions(undo);
     },
   });
 
@@ -119,25 +122,33 @@ export function NoteStructuringWidget({
 
   const startNewNote = () => {
     if (dictation.isListening) dictation.stop();
-    setResults(null);
+    setBatch(null);
     setSummary(null);
-    setUndoActions(null);
     setNoteText("");
     structureAndApplyMutation.reset();
-    undoMutation.reset();
+    undoAllMutation.reset();
+    undoItemMutation.reset();
   };
 
-  const undoMutation = useMutation({
-    mutationFn: undoSuggestions,
+  const undoAllMutation = useMutation({
+    mutationFn: () => undoRemaining(batch!),
     onSuccess: () => {
       invalidateCharacterQueries();
       startNewNote();
     },
   });
 
-  const undoErrorMessage = undoMutation.isError
-    ? extractErrorMessage(undoMutation.error, "Não foi possível desfazer.")
-    : null;
+  const undoItemMutation = useMutation({
+    mutationFn: (index: number) => undoItem(batch!, index),
+    onSuccess: (updatedBatch) => {
+      invalidateCharacterQueries();
+      setBatch(updatedBatch);
+    },
+  });
+
+  const undoIsPending = undoAllMutation.isPending || undoItemMutation.isPending;
+  const undoError = undoAllMutation.error ?? undoItemMutation.error;
+  const undoErrorMessage = undoError ? extractErrorMessage(undoError, "Não foi possível desfazer.") : null;
 
   const handleStructureClick = () => {
     if (dictation.isListening) dictation.stop();
@@ -220,29 +231,20 @@ export function NoteStructuringWidget({
                   </Button>
                 </div>
               </>
-            ) : results ? (
+            ) : batch ? (
               <>
                 {summary && <DavenaBubble>{summary}</DavenaBubble>}
-                {results.length === 0 ? (
+                {batch.items.length === 0 ? (
                   <p className="text-muted-foreground py-6 text-center text-sm italic">
                     Não encontrei nada estruturável nessa anotação.
                   </p>
                 ) : (
-                  <ul className="flex flex-col gap-2">
-                    {results.map((r, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
-                        <CheckCircle2 className="text-primary mt-0.5 size-3.5 shrink-0" />
-                        <span>
-                          <strong>{r.mode === "update" ? "Atualizado" : "Criado"}</strong> em {r.tabName}
-                          {r.title ? ` · ${r.title}` : ""}
-                          <span className="text-muted-foreground">
-                            {" "}
-                            ({CHARACTER_TAB_BLOCK_TYPE_LABELS[r.type]})
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <AppliedResultsList
+                    batch={batch}
+                    onUndoItem={(index) => undoItemMutation.mutate(index)}
+                    undoingIndex={undoItemMutation.isPending ? (undoItemMutation.variables ?? null) : null}
+                    disabled={undoIsPending}
+                  />
                 )}
                 <p className="text-muted-foreground text-xs italic">
                   Confira o resultado direto na aba/bloco correspondente da ficha.
@@ -256,19 +258,19 @@ export function NoteStructuringWidget({
                 )}
 
                 <div className="flex justify-end gap-2">
-                  {undoActions && undoActions.length > 0 && (
+                  {hasUndoableItems(batch) && (
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => undoMutation.mutate(undoActions)}
-                      disabled={undoMutation.isPending}
-                      title="Reverte os blocos criados/atualizados por essa anotação"
+                      onClick={() => undoAllMutation.mutate()}
+                      disabled={undoIsPending}
+                      title="Reverte todos os blocos criados/atualizados por essa anotação"
                     >
-                      {undoMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                      Desfazer
+                      {undoAllMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                      Desfazer tudo
                     </Button>
                   )}
-                  <Button type="button" onClick={startNewNote} disabled={undoMutation.isPending}>
+                  <Button type="button" onClick={startNewNote} disabled={undoIsPending}>
                     Nova anotação
                   </Button>
                 </div>
