@@ -13,6 +13,7 @@ import { isAxiosError } from "axios";
 import { useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { paths } from "@/routes/paths";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
@@ -78,6 +79,7 @@ export function NoteStructuringWidget({
   const [isNew, setIsNew] = useState(() => localStorage.getItem(SEEN_STORAGE_KEY) !== "1");
   const [phrase, setPhrase] = useState(() => pickPhrase());
   const [noteText, setNoteText] = useState("");
+  const [preferredTabId, setPreferredTabId] = useState("");
   const [batch, setBatch] = useState<AppliedBatch | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -100,7 +102,12 @@ export function NoteStructuringWidget({
 
   const structureAndApplyMutation = useMutation({
     mutationFn: async () => {
-      const { summary, suggestions } = await NoteStructuringService.structure(characterId, noteText);
+      const preferredTabName = tabs.find((t) => t.id === preferredTabId)?.name;
+      const { summary, suggestions } = await NoteStructuringService.structure(
+        characterId,
+        noteText,
+        preferredTabName,
+      );
       const applied = await applySuggestions(characterId, tabs, suggestions);
       return { applied, summary };
     },
@@ -281,6 +288,36 @@ export function NoteStructuringWidget({
                   Me conta o que rolou na sessão — cola (ou dita) suas anotações que eu organizo
                   tudo na ficha. ✒️
                 </DavenaBubble>
+                {tabs.length > 0 && (
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="davena-target-tab"
+                      className="text-muted-foreground text-xs font-medium"
+                    >
+                      Guardar o relato em
+                    </label>
+                    <Select
+                      id="davena-target-tab"
+                      value={preferredTabId}
+                      onChange={(e) => setPreferredTabId(e.target.value)}
+                      disabled={structureAndApplyMutation.isPending}
+                      className="h-9"
+                    >
+                      <option value="">Deixar a Davena decidir (recomendado)</option>
+                      {tabs.map((tab) => (
+                        <option key={tab.id} value={tab.id}>
+                          {tab.name}
+                        </option>
+                      ))}
+                    </Select>
+                    {preferredTabId && (
+                      <p className="text-muted-foreground text-xs italic">
+                        O relato principal vai para essa aba. Pessoas, itens e teorias citados
+                        continuam indo para as abas certas.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-1">
                   <div className="relative">
                     <Textarea

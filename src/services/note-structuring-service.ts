@@ -18,10 +18,10 @@ export type StructureNoteResult = {
 };
 
 export const NoteStructuringService = {
-  async structure(characterId: string, noteText: string) {
+  async structure(characterId: string, noteText: string, preferredTabName?: string | null) {
     const response = await apiClient.post<StructureNoteResult>(
       `/characters/${characterId}/notes/structure`,
-      { noteText },
+      { noteText, preferredTabName: preferredTabName?.trim() || null },
     );
     return response.data;
   },
