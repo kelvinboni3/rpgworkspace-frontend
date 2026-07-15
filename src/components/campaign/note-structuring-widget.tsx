@@ -190,7 +190,7 @@ export function NoteStructuringWidget({
 
       {isOpen && (
         <div className="dossier-frame glass-panel fixed right-6 bottom-24 z-50 flex max-h-[82vh] w-[460px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden shadow-2xl">
-          <div className="border-border/50 from-primary/15 via-primary/5 relative shrink-0 border-b bg-gradient-to-r to-transparent px-5 pt-4 pb-3">
+          <div className="border-border/50 from-primary/15 via-primary/5 relative flex min-h-28 shrink-0 flex-col justify-center border-b bg-gradient-to-r to-transparent px-5 py-3">
             <img
               src="/davena.png"
               alt=""
