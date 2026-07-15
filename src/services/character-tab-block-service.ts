@@ -10,6 +10,7 @@ export const CharacterTabBlockType = {
   Collapse: 7,
   Book: 8,
   Dice: 9,
+  Group: 10,
 } as const;
 
 export type CharacterTabBlockTypeValue =
@@ -25,6 +26,7 @@ export const CHARACTER_TAB_BLOCK_TYPE_LABELS: Record<CharacterTabBlockTypeValue,
   [CharacterTabBlockType.Collapse]: "Registro expansível",
   [CharacterTabBlockType.Book]: "Livro",
   [CharacterTabBlockType.Dice]: "Rolador de Dados",
+  [CharacterTabBlockType.Group]: "Grupo",
 };
 
 export const BLOCK_ACCENT_COLORS = ["gold", "crimson", "violet"] as const;
@@ -181,6 +183,14 @@ export const CharacterTabBlockService = {
       `/character-tabs/${characterTabId}/blocks/reorder`,
       { orderedBlockIds },
     );
+    return response.data;
+  },
+
+  /** Move um bloco existente pra dentro de um container (Registro expansível) ou de volta pro topo da aba (null). */
+  async setParent(id: string, parentBlockId: string | null) {
+    const response = await apiClient.put<CharacterTabBlock>(`/character-tab-blocks/${id}/parent`, {
+      parentBlockId,
+    });
     return response.data;
   },
 

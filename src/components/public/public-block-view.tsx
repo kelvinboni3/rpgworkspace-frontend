@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from "react";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Boxes } from "lucide-react";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { DossierMarkdown } from "@/components/dossier/dossier-markdown";
 import { DiceBlockView } from "@/components/campaign/dice-block-view";
@@ -168,6 +168,45 @@ function PublicCollapseBlock({ block }: { block: CharacterTabBlock }) {
   );
 }
 
+function PublicGroupBlock({ block }: { block: CharacterTabBlock }) {
+  return (
+    <details
+      open
+      className="bg-card/40 border-border/60 border px-4 py-3"
+      style={accentBorderStyle(block.accentColor)}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Boxes
+            className="size-4 shrink-0"
+            style={accentTextStyle(block.accentColor) ?? { color: "hsl(var(--primary))" }}
+          />
+          <div className="min-w-0">
+            <div
+              className="font-display truncate text-base"
+              style={accentTextStyle(block.accentColor) ?? { color: "hsl(var(--primary))" }}
+            >
+              {block.title || "Sem título"}
+            </div>
+            {block.meta && <div className="dossier-meta text-xs">{block.meta}</div>}
+          </div>
+        </div>
+        <span className="text-muted-foreground shrink-0 text-xs">▾</span>
+      </summary>
+      <div className="border-border/60 mt-3 flex flex-col gap-4 border-t pt-3">
+        {block.content && <DossierMarkdown text={block.content} />}
+        {block.children.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {block.children.map((child) => (
+              <PublicBlockView key={child.id} block={child} />
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}
+
 export function PublicBlockView({ block }: { block: CharacterTabBlock }) {
   switch (block.type) {
     case CharacterTabBlockType.Text:
@@ -251,6 +290,9 @@ export function PublicBlockView({ block }: { block: CharacterTabBlock }) {
 
     case CharacterTabBlockType.Collapse:
       return <PublicCollapseBlock block={block} />;
+
+    case CharacterTabBlockType.Group:
+      return <PublicGroupBlock block={block} />;
 
     case CharacterTabBlockType.Dice:
       return <DiceBlockView block={block} />;

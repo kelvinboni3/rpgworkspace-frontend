@@ -12,11 +12,14 @@ import {
   AlignLeft,
   AlignRight,
   BookOpen,
+  Boxes,
   Camera,
   ChevronDown,
   ChevronUp,
   Dices,
   Eye,
+  FolderInput,
+  FolderOutput,
   GripVertical,
   IdCard,
   ImageIcon,
@@ -35,11 +38,13 @@ import {
   DndContext,
   closestCenter,
   PointerSensor,
+  useDroppable,
   useSensor,
   useSensors,
   type DraggableAttributes,
   type DraggableSyntheticListeners,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -85,6 +90,7 @@ import { DiceBlockView } from "@/components/campaign/dice-block-view";
 import { DiceEditForm } from "@/components/campaign/dice-edit-form";
 import { MentionDropdown } from "@/components/campaign/mention-dropdown";
 import { MarkdownToolbar } from "@/components/campaign/markdown-toolbar";
+import { useCollapsedCard } from "@/hooks/use-collapsed-card";
 import { useMentionAutocomplete } from "@/hooks/use-mention-autocomplete";
 import { useMarkdownFormatting } from "@/hooks/use-markdown-formatting";
 import { useAuthenticatedMedia } from "@/hooks/use-authenticated-media";
@@ -111,6 +117,7 @@ const BLOCK_TYPE_ICONS: Record<CharacterTabBlockTypeValue, ComponentType<{ class
   [CharacterTabBlockType.Collapse]: PanelBottomOpen,
   [CharacterTabBlockType.Book]: BookOpen,
   [CharacterTabBlockType.Dice]: Dices,
+  [CharacterTabBlockType.Group]: Boxes,
 };
 
 const ACCENT_COLOR_VARS: Record<BlockAccentColor, string> = {
@@ -133,7 +140,11 @@ function accentTextStyle(color: BlockAccentColor | null | undefined): CSSPropert
   return value ? { color: value } : undefined;
 }
 
-const ACCENT_CAPABLE_TYPES: CharacterTabBlockTypeValue[] = [CharacterTabBlockType.Card, CharacterTabBlockType.Collapse];
+const ACCENT_CAPABLE_TYPES: CharacterTabBlockTypeValue[] = [
+  CharacterTabBlockType.Card,
+  CharacterTabBlockType.Collapse,
+  CharacterTabBlockType.Group,
+];
 
 export function AccentColorPicker({
   value,
@@ -232,6 +243,8 @@ function defaultsForType(type: CharacterTabBlockTypeValue) {
       return { payloadJson: JSON.stringify({ url: "", caption: "", size: "medium", position: "center" }) };
     case CharacterTabBlockType.Collapse:
       return { title: "Novo registro", content: "" };
+    case CharacterTabBlockType.Group:
+      return { title: "Novo grupo", content: "" };
     case CharacterTabBlockType.Book:
       return { title: "Novo livro" };
     case CharacterTabBlockType.Dice:
@@ -383,11 +396,58 @@ export function CharacterTabSection({
     onSettled: () => invalidateBlocks(),
   });
 
+  const setParentMutation = useMutation({
+    mutationFn: ({ id, parentBlockId }: { id: string; parentBlockId: string | null }) =>
+      CharacterTabBlockService.setParent(id, parentBlockId),
+    onSuccess: () => invalidateBlocks(),
+  });
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+  // Enquanto um bloco elegível é arrastado, os "Registros expansíveis" mostram um alvo
+  // de soltura pra mover o bloco pra dentro deles (pedido dos testers).
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const activeDragBlock = activeDragId ? blocks.find((b) => b.id === activeDragId) : undefined;
+
+  // Mesmas regras do backend: Grupo aceita qualquer bloco (menos outro Grupo), inclusive
+  // com filhos; Registro expansível só aceita blocos "vazios" que não sejam containers.
+  const canMoveIntoGroup = (b: CharacterTabBlock) => b.type !== CharacterTabBlockType.Group;
+  const canMoveIntoCollapse = (b: CharacterTabBlock) =>
+    b.type !== CharacterTabBlockType.Collapse &&
+    b.type !== CharacterTabBlockType.Group &&
+    b.children.length === 0;
+
+  const groupTargets = blocks
+    .filter((b) => b.type === CharacterTabBlockType.Group)
+    .map((b) => ({ id: b.id, title: b.title, kind: "Grupo" }));
+  const collapseTargets = blocks
+    .filter((b) => b.type === CharacterTabBlockType.Collapse)
+    .map((b) => ({ id: b.id, title: b.title, kind: "Registro" }));
+
+  const moveTargetsFor = (b: CharacterTabBlock) =>
+    [
+      ...(canMoveIntoGroup(b) ? groupTargets : []),
+      ...(canMoveIntoCollapse(b) ? collapseTargets : []),
+    ].filter((t) => t.id !== b.id);
+
+  const isDropTargetFor = (container: CharacterTabBlock, dragged: CharacterTabBlock) =>
+    container.id !== dragged.id &&
+    ((container.type === CharacterTabBlockType.Group && canMoveIntoGroup(dragged)) ||
+      (container.type === CharacterTabBlockType.Collapse && canMoveIntoCollapse(dragged)));
+
+  const handleDragStart = (event: DragStartEvent) => setActiveDragId(String(event.active.id));
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+
+    const overId = String(over.id);
+    if (overId.startsWith("into:")) {
+      setParentMutation.mutate({ id: String(active.id), parentBlockId: overId.slice("into:".length) });
+      return;
+    }
+
     const oldIndex = blocks.findIndex((b) => b.id === active.id);
     const newIndex = blocks.findIndex((b) => b.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
@@ -493,7 +553,13 @@ export function CharacterTabSection({
               Nenhum bloco ainda nesta aba. Use os botões abaixo pra adicionar o primeiro.
             </p>
           )}
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragCancel={() => setActiveDragId(null)}
+            onDragEnd={handleDragEnd}
+          >
             <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
               {blocks.map((block, index) => (
                 <SortableBlockCard
@@ -514,6 +580,13 @@ export function CharacterTabSection({
                   onMoveDown={() => moveMutation.mutate({ id: block.id, direction: "down" })}
                   onDelete={() => handleDeleteBlock(block.id)}
                   onChangeAccentColor={(color) => accentColorMutation.mutate({ id: block.id, accentColor: color })}
+                  moveIntoTargets={moveTargetsFor(block)}
+                  onMoveInto={(targetId) =>
+                    setParentMutation.mutate({ id: block.id, parentBlockId: targetId })
+                  }
+                  intoDropZoneActive={
+                    activeDragBlock != null && isDropTargetFor(block, activeDragBlock)
+                  }
                 />
               ))}
             </SortableContext>
@@ -601,6 +674,67 @@ function IconButton({
   );
 }
 
+/** Alvo de soltura que aparece sob um "Registro expansível" enquanto outro bloco é arrastado. */
+function IntoDropZone({ blockId, title }: { blockId: string; title: string | null }) {
+  const { isOver, setNodeRef } = useDroppable({ id: `into:${blockId}` });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-sm border border-dashed px-3 py-2 text-center text-xs transition-colors",
+        isOver
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border/60 text-muted-foreground",
+      )}
+    >
+      Solte aqui pra mover pra dentro de “{title || "Sem título"}”
+    </div>
+  );
+}
+
+function MoveIntoGroupPicker({
+  targets,
+  onSelect,
+}: {
+  targets: Array<{ id: string; title: string | null; kind: string }>;
+  onSelect: (targetId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <IconButton
+        icon={FolderInput}
+        title="Mover pra dentro de um grupo ou registro"
+        onClick={() => setOpen((o) => !o)}
+      />
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="border-border/60 bg-card absolute right-0 z-30 mt-1 w-56 rounded-md border p-1 shadow-lg">
+            <p className="dossier-meta px-2 py-1 text-[10px] tracking-widest uppercase">
+              Mover pra dentro de
+            </p>
+            {targets.map((target) => (
+              <button
+                key={target.id}
+                type="button"
+                className="hover:bg-accent/10 flex w-full items-baseline gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm"
+                onClick={() => {
+                  setOpen(false);
+                  onSelect(target.id);
+                }}
+              >
+                <span className="min-w-0 truncate">{target.title || "Sem título"}</span>
+                <span className="dossier-meta shrink-0 text-[10px]">· {target.kind}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function BlockCard({
   block,
   tabId,
@@ -618,6 +752,10 @@ function BlockCard({
   onMoveDown,
   onDelete,
   onChangeAccentColor,
+  onMoveOut,
+  moveIntoTargets,
+  onMoveInto,
+  intoDropZoneActive,
   dragHandleAttributes,
   dragHandleListeners,
 }: {
@@ -637,6 +775,13 @@ function BlockCard({
   onMoveDown: () => void;
   onDelete: () => void;
   onChangeAccentColor?: (color: BlockAccentColor | null) => void;
+  /** Presente apenas em blocos filhos: move o bloco de volta pro topo da aba. */
+  onMoveOut?: () => void;
+  /** Containers da aba (Grupos/Registros expansíveis) que podem receber este bloco. */
+  moveIntoTargets?: Array<{ id: string; title: string | null; kind: string }>;
+  onMoveInto?: (targetId: string) => void;
+  /** Mostra o alvo de soltura "mover pra dentro" enquanto outro bloco é arrastado. */
+  intoDropZoneActive?: boolean;
   dragHandleAttributes?: DraggableAttributes;
   dragHandleListeners?: DraggableSyntheticListeners;
 }) {
@@ -667,11 +812,8 @@ function BlockCard({
   }
 
   return (
-    <div
-      id={`block-${block.id}`}
-      className="group flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-2"
-    >
-      <div className="min-w-0 flex-1">
+    <div id={`block-${block.id}`} className="flex flex-col gap-1.5">
+      <div className="group relative flex flex-col gap-1.5">
         <BlockView
           block={block}
           tabId={tabId}
@@ -679,30 +821,38 @@ function BlockCard({
           onNavigateToBlock={onNavigateToBlock}
           focusBlockId={focusBlockId}
         />
+        {/* Mobile: actions sit in a right-aligned row *below* the block so they never steal
+            content width. Desktop: a floating pill overlaid on the block's top-right corner,
+            visible on hover/focus — the content keeps the full column width. */}
+        <div className="border-border/60 bg-card/95 flex items-center gap-0.5 self-end rounded-md border p-0.5 shadow-md backdrop-blur-sm transition-opacity sm:absolute sm:-top-3 sm:right-2 sm:z-10 sm:self-auto sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+          {dragHandleAttributes && dragHandleListeners && (
+            <button
+              type="button"
+              title="Arrastar pra reordenar"
+              aria-label="Arrastar pra reordenar"
+              className="text-muted-foreground hover:text-foreground hover:bg-accent/10 hidden cursor-grab touch-none rounded-sm p-1.5 active:cursor-grabbing sm:inline-flex"
+              {...dragHandleAttributes}
+              {...dragHandleListeners}
+            >
+              <GripVertical className="size-3.5" />
+            </button>
+          )}
+          {supportsAccentColor && onChangeAccentColor && (
+            <AccentColorPicker value={block.accentColor} onChange={onChangeAccentColor} />
+          )}
+          {onMoveOut && (
+            <IconButton icon={FolderOutput} title="Retirar do registro (voltar pro topo da aba)" onClick={onMoveOut} />
+          )}
+          {onMoveInto && moveIntoTargets && moveIntoTargets.length > 0 && (
+            <MoveIntoGroupPicker targets={moveIntoTargets} onSelect={onMoveInto} />
+          )}
+          <IconButton icon={ChevronUp} title="Mover pra cima" disabled={isFirst} onClick={onMoveUp} />
+          <IconButton icon={ChevronDown} title="Mover pra baixo" disabled={isLast} onClick={onMoveDown} />
+          <IconButton icon={Pencil} title="Editar bloco" onClick={onEdit} />
+          <IconButton icon={Trash2} title="Excluir bloco" destructive onClick={onDelete} />
+        </div>
       </div>
-      {/* Mobile: actions sit in a right-aligned row *below* the block so they never steal
-          content width. Desktop: they float to the right and only appear on hover/focus. */}
-      <div className="flex shrink-0 items-center gap-0.5 self-end opacity-100 transition-opacity sm:self-auto sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-        {dragHandleAttributes && dragHandleListeners && (
-          <button
-            type="button"
-            title="Arrastar pra reordenar"
-            aria-label="Arrastar pra reordenar"
-            className="text-muted-foreground hover:text-foreground hover:bg-accent/10 hidden cursor-grab touch-none rounded-sm p-1.5 active:cursor-grabbing sm:inline-flex"
-            {...dragHandleAttributes}
-            {...dragHandleListeners}
-          >
-            <GripVertical className="size-3.5" />
-          </button>
-        )}
-        {supportsAccentColor && onChangeAccentColor && (
-          <AccentColorPicker value={block.accentColor} onChange={onChangeAccentColor} />
-        )}
-        <IconButton icon={ChevronUp} title="Mover pra cima" disabled={isFirst} onClick={onMoveUp} />
-        <IconButton icon={ChevronDown} title="Mover pra baixo" disabled={isLast} onClick={onMoveDown} />
-        <IconButton icon={Pencil} title="Editar bloco" onClick={onEdit} />
-        <IconButton icon={Trash2} title="Excluir bloco" destructive onClick={onDelete} />
-      </div>
+      {intoDropZoneActive && <IntoDropZone blockId={block.id} title={block.title} />}
     </div>
   );
 }
@@ -906,6 +1056,17 @@ function BlockView({
         />
       );
 
+    case CharacterTabBlockType.Group:
+      return (
+        <GroupBlockView
+          block={block}
+          tabId={tabId}
+          characterId={characterId}
+          onNavigateToBlock={onNavigateToBlock}
+          focusBlockId={focusBlockId}
+        />
+      );
+
     default:
       return null;
   }
@@ -1100,6 +1261,11 @@ function useChildBlockMutations(tabId: string, parentBlockId: string, children: 
     onSuccess: () => invalidateBlocks(),
   });
 
+  const moveOutChildMutation = useMutation({
+    mutationFn: (id: string) => CharacterTabBlockService.setParent(id, null),
+    onSuccess: () => invalidateBlocks(),
+  });
+
   const reorderChildrenMutation = useMutation({
     mutationFn: (orderedIds: string[]) => CharacterTabBlockService.reorderChildren(parentBlockId, orderedIds),
     onMutate: async (orderedIds) => {
@@ -1130,13 +1296,16 @@ function useChildBlockMutations(tabId: string, parentBlockId: string, children: 
     moveChildMutation,
     deleteChildMutation,
     accentChildMutation,
+    moveOutChildMutation,
     reorderChildrenMutation,
   };
 }
 
 const IMAGE_CHILD_BLOCK_TYPE_ENTRIES = Object.entries(CHARACTER_TAB_BLOCK_TYPE_LABELS).filter(
   ([value]) =>
-    Number(value) !== CharacterTabBlockType.Collapse && Number(value) !== CharacterTabBlockType.Image,
+    Number(value) !== CharacterTabBlockType.Collapse &&
+    Number(value) !== CharacterTabBlockType.Image &&
+    Number(value) !== CharacterTabBlockType.Group,
 );
 
 function ImageBlockView({
@@ -1166,6 +1335,7 @@ function ImageBlockView({
     moveChildMutation,
     deleteChildMutation,
     accentChildMutation,
+    moveOutChildMutation,
     reorderChildrenMutation,
   } = useChildBlockMutations(tabId, block.id, children);
 
@@ -1235,6 +1405,7 @@ function ImageBlockView({
                   onMoveDown={() => moveChildMutation.mutate({ id: child.id, direction: "down" })}
                   onDelete={() => handleDeleteChild(child.id)}
                   onChangeAccentColor={(color) => accentChildMutation.mutate({ id: child.id, accentColor: color })}
+                  onMoveOut={() => moveOutChildMutation.mutate(child.id)}
                 />
               ))}
             </SortableContext>
@@ -1312,7 +1483,14 @@ function BookCoverCard({ block }: { block: CharacterTabBlock }) {
 }
 
 const CHILD_BLOCK_TYPE_ENTRIES = Object.entries(CHARACTER_TAB_BLOCK_TYPE_LABELS).filter(
-  ([value]) => Number(value) !== CharacterTabBlockType.Collapse,
+  ([value]) =>
+    Number(value) !== CharacterTabBlockType.Collapse &&
+    Number(value) !== CharacterTabBlockType.Group,
+);
+
+// Grupo aceita qualquer bloco, inclusive Registro expansível — só não aceita outro Grupo.
+const GROUP_CHILD_BLOCK_TYPE_ENTRIES = Object.entries(CHARACTER_TAB_BLOCK_TYPE_LABELS).filter(
+  ([value]) => Number(value) !== CharacterTabBlockType.Group,
 );
 
 function CollapseBlockView({
@@ -1357,6 +1535,7 @@ function CollapseBlockView({
     moveChildMutation,
     deleteChildMutation,
     accentChildMutation,
+    moveOutChildMutation,
     reorderChildrenMutation,
   } = useChildBlockMutations(tabId, block.id, children);
 
@@ -1456,6 +1635,7 @@ function CollapseBlockView({
                         onMoveDown={() => moveChildMutation.mutate({ id: child.id, direction: "down" })}
                         onDelete={() => handleDeleteChild(child.id)}
                         onChangeAccentColor={(color) => accentChildMutation.mutate({ id: child.id, accentColor: color })}
+                        onMoveOut={() => moveOutChildMutation.mutate(child.id)}
                       />
                     ))}
                   </SortableContext>
@@ -1497,6 +1677,168 @@ function CollapseBlockView({
   );
 }
 
+/** Container nomeado que agrupa quaisquer outros blocos (inclusive Registros expansíveis) e recolhe inteiro. */
+function GroupBlockView({
+  block,
+  tabId,
+  characterId,
+  onNavigateToBlock,
+  focusBlockId,
+}: {
+  block: CharacterTabBlock;
+  tabId: string;
+  characterId: string;
+  onNavigateToBlock: (blockId: string) => void;
+  focusBlockId?: string | null;
+}) {
+  const children = block.children;
+  // Aberto por padrão; o estado recolhido é preferência local de visualização (persiste por grupo).
+  const { isCollapsed, toggleCollapsed } = useCollapsedCard(`group:${block.id}`);
+  const [editingChildId, setEditingChildId] = useState<string | null>(null);
+
+  // Um link/backlink apontando pra dentro do grupo precisa dele aberto pra ficar visível.
+  useEffect(() => {
+    if (!focusBlockId || !isCollapsed) return;
+    const isTarget =
+      focusBlockId === block.id ||
+      children.some((c) => c.id === focusBlockId || c.children.some((g) => g.id === focusBlockId));
+    if (isTarget) toggleCollapsed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusBlockId]);
+
+  const {
+    createChildMutation,
+    updateChildMutation,
+    moveChildMutation,
+    deleteChildMutation,
+    accentChildMutation,
+    moveOutChildMutation,
+    reorderChildrenMutation,
+  } = useChildBlockMutations(tabId, block.id, children);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  const handleChildDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = children.findIndex((c) => c.id === active.id);
+    const newIndex = children.findIndex((c) => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    reorderChildrenMutation.mutate(arrayMove(children, oldIndex, newIndex).map((c) => c.id));
+  };
+
+  const handleDeleteChild = (id: string) => {
+    if (window.confirm("Excluir este bloco? Essa ação não pode ser desfeita.")) {
+      deleteChildMutation.mutate(id);
+    }
+  };
+
+  return (
+    <div className="bg-card/40 border-border/60 border px-4 py-3" style={accentBorderStyle(block.accentColor)}>
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        title={isCollapsed ? "Expandir grupo" : "Recolher grupo"}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Boxes
+            className="size-4 shrink-0"
+            style={accentTextStyle(block.accentColor) ?? { color: "hsl(var(--primary))" }}
+          />
+          <div className="min-w-0">
+            <div
+              className="font-display truncate text-base"
+              style={accentTextStyle(block.accentColor) ?? { color: "hsl(var(--primary))" }}
+            >
+              {block.title || "Sem título"}
+            </div>
+            {block.meta && <div className="dossier-meta text-xs">{block.meta}</div>}
+          </div>
+        </div>
+        <span
+          className={cn(
+            "text-muted-foreground shrink-0 text-xs transition-transform",
+            !isCollapsed && "rotate-180",
+          )}
+        >
+          ▾
+        </span>
+      </button>
+      {!isCollapsed && (
+        <div className="border-border/60 mt-3 flex flex-col gap-4 border-t pt-3">
+          {block.content && (
+            <DossierMarkdown text={block.content} onNavigateToBlock={onNavigateToBlock} />
+          )}
+
+          {children.length > 0 && (
+            <div className="flex flex-col gap-4">
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleChildDragEnd}>
+                <SortableContext items={children.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                  {children.map((child, index) => (
+                    <SortableBlockCard
+                      key={child.id}
+                      block={child}
+                      tabId={tabId}
+                      characterId={characterId}
+                      onNavigateToBlock={onNavigateToBlock}
+                      focusBlockId={focusBlockId}
+                      isFirst={index === 0}
+                      isLast={index === children.length - 1}
+                      isEditing={editingChildId === child.id}
+                      onEdit={() => setEditingChildId(child.id)}
+                      onCancelEdit={() => setEditingChildId(null)}
+                      onSubmitEdit={(values) =>
+                        updateChildMutation.mutate(
+                          { id: child.id, values },
+                          { onSuccess: () => setEditingChildId(null) },
+                        )
+                      }
+                      isSaving={updateChildMutation.isPending}
+                      onMoveUp={() => moveChildMutation.mutate({ id: child.id, direction: "up" })}
+                      onMoveDown={() => moveChildMutation.mutate({ id: child.id, direction: "down" })}
+                      onDelete={() => handleDeleteChild(child.id)}
+                      onChangeAccentColor={(color) =>
+                        accentChildMutation.mutate({ id: child.id, accentColor: color })
+                      }
+                      onMoveOut={() => moveOutChildMutation.mutate(child.id)}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
+
+          <div className="border-border/60 flex flex-wrap gap-1 border-t border-dashed pt-3">
+            {GROUP_CHILD_BLOCK_TYPE_ENTRIES.map(([value, label]) => {
+              const type = Number(value) as CharacterTabBlockTypeValue;
+              const Icon = BLOCK_TYPE_ICONS[type];
+              return (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground h-7 px-2 text-xs"
+                  onClick={() =>
+                    createChildMutation.mutate(type, { onSuccess: (created) => setEditingChildId(created.id) })
+                  }
+                  disabled={createChildMutation.isPending}
+                >
+                  <Icon className="size-3" />
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
+
+          <BlockBacklinks blockId={block.id} onNavigateToBlock={onNavigateToBlock} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BlockEditForm({
   block,
   characterId,
@@ -1535,6 +1877,7 @@ function BlockEditForm({
     case CharacterTabBlockType.Dice:
       return <DiceEditForm block={block} onSubmit={onSubmit} onCancel={onCancel} isSaving={isSaving} />;
     case CharacterTabBlockType.Collapse:
+    case CharacterTabBlockType.Group:
       return (
         <CollapseEditForm
           block={block}

@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Lock, ScrollText, TriangleAlert } from "lucide-react";
+import { ChevronDown, Loader2, Lock, ScrollText, TriangleAlert } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DossierMarkdown } from "@/components/dossier/dossier-markdown";
+import { useCollapsedCard } from "@/hooks/use-collapsed-card";
 import { paths } from "@/routes/paths";
 import { CharacterNarrativeService } from "@/services/character-narrative-service";
 import { extractErrorMessage } from "@/utils/api-error";
+import { cn } from "@/utils/cn";
 import { daysSince } from "@/utils/date";
 
 const INACTIVITY_THRESHOLD_DAYS = 4;
@@ -35,6 +37,7 @@ export function SessionRecapCard({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isCollapsed, toggleCollapsed } = useCollapsedCard(`session-recap:${characterId}`);
 
   const recapMutation = useMutation({
     mutationFn: () => CharacterNarrativeService.generateRecap(characterId),
@@ -55,46 +58,63 @@ export function SessionRecapCard({
   if (displayedRecap) {
     return (
       <Card className="glass-panel p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          title={isCollapsed ? "Expandir" : "Recolher"}
+          className="flex w-full items-center justify-between gap-2 text-left"
+        >
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">
             <ScrollText className="text-primary size-4" />
             Anteriormente, nessa história...
           </h3>
-          <span className="text-muted-foreground text-xs">
-            {generatedAtLabel(displayedRecap.generatedAt)}
+          <span className="flex shrink-0 items-center gap-2">
+            <span className="text-muted-foreground text-xs">
+              {generatedAtLabel(displayedRecap.generatedAt)}
+            </span>
+            <ChevronDown
+              className={cn(
+                "text-muted-foreground size-4 shrink-0 transition-transform",
+                !isCollapsed && "rotate-180",
+              )}
+            />
           </span>
-        </div>
-        <DossierMarkdown text={displayedRecap.recap} />
-        {recapMutation.isError && (
-          <p className="text-destructive mt-2 flex items-center gap-1.5 text-xs">
-            <TriangleAlert className="size-3.5 shrink-0" />
-            {extractErrorMessage(recapMutation.error, "Não foi possível gerar o recap.")}
-          </p>
-        )}
-        {locked ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="mt-2"
-            onClick={() => navigate(paths.subscription)}
-            title="Recap por IA — exclusivo para assinantes"
-          >
-            <Lock className="size-3.5" />
-            Assinar para gerar novamente
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="mt-2"
-            onClick={() => recapMutation.mutate()}
-            disabled={recapMutation.isPending}
-          >
-            {recapMutation.isPending && <Loader2 className="size-3.5 animate-spin" />}
-            Gerar novamente
-          </Button>
+        </button>
+        {!isCollapsed && (
+          <div className="mt-3">
+            <DossierMarkdown text={displayedRecap.recap} />
+            {recapMutation.isError && (
+              <p className="text-destructive mt-2 flex items-center gap-1.5 text-xs">
+                <TriangleAlert className="size-3.5 shrink-0" />
+                {extractErrorMessage(recapMutation.error, "Não foi possível gerar o recap.")}
+              </p>
+            )}
+            {locked ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                onClick={() => navigate(paths.subscription)}
+                title="Recap por IA — exclusivo para assinantes"
+              >
+                <Lock className="size-3.5" />
+                Assinar para gerar novamente
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                onClick={() => recapMutation.mutate()}
+                disabled={recapMutation.isPending}
+              >
+                {recapMutation.isPending && <Loader2 className="size-3.5 animate-spin" />}
+                Gerar novamente
+              </Button>
+            )}
+          </div>
         )}
       </Card>
     );

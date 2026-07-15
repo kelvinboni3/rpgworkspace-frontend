@@ -619,7 +619,7 @@ export function CharacterDetailPage() {
           ) : (
             <>
               {dashboardQuery.data && (
-                <CharacterDashboardSummary dashboard={dashboardQuery.data} />
+                <CharacterDashboardSummary characterId={characterId} dashboard={dashboardQuery.data} />
               )}
 
               {characterQuery.data && characterQuery.data.status !== CharacterStatus.Retired && (
