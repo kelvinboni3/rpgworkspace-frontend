@@ -11,10 +11,11 @@ import {
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import { useNavigate } from "react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AiUsageService } from "@/services/ai-usage-service";
 import { paths } from "@/routes/paths";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 import { AppliedResultsList } from "@/components/campaign/applied-results-list";
@@ -84,6 +85,13 @@ export function NoteStructuringWidget({
   const [summary, setSummary] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  const usageQuery = useQuery({
+    queryKey: ["ai-usage"],
+    queryFn: AiUsageService.getMine,
+    enabled: isOpen && !locked,
+    staleTime: 60_000,
+  });
+
   const invalidateCharacterQueries = () => {
     queryClient.invalidateQueries({ queryKey: ["characters", characterId, "tabs"] });
     queryClient.invalidateQueries({
@@ -113,6 +121,7 @@ export function NoteStructuringWidget({
     },
     onSuccess: ({ applied, summary }) => {
       invalidateCharacterQueries();
+      queryClient.invalidateQueries({ queryKey: ["ai-usage"] });
       if (applied.firstTabId) onApplied(applied.firstTabId);
       setBatch(applied);
       setSummary(summary);
@@ -288,6 +297,16 @@ export function NoteStructuringWidget({
                   Me conta o que rolou na sessão — cola (ou dita) suas anotações que eu organizo
                   tudo na ficha. ✒️
                 </DavenaBubble>
+                {usageQuery.data && (
+                  <p
+                    className={cn(
+                      "text-center text-xs",
+                      usageQuery.data.remaining === 0 ? "text-destructive" : "text-muted-foreground",
+                    )}
+                  >
+                    {usageQuery.data.remaining} de {usageQuery.data.limit} usos de IA restantes este mês
+                  </p>
+                )}
                 {tabs.length > 0 && (
                   <div className="space-y-1">
                     <label

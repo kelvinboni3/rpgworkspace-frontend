@@ -112,7 +112,7 @@ const TESTIMONIALS: string[] = [
 
 const PLAN_INCLUDES = [
   "Personagens ilimitados",
-  "IA completa: estruturar anotações, recap e retrospectiva",
+  "IA completa (até 100 usos/mês): estruturar anotações, recap e retrospectiva",
   "Diário completo com abas e blocos",
   "Funciona offline no celular e no PC (PWA)",
   "Link público para compartilhar a ficha",
@@ -128,7 +128,12 @@ const FAQ: Array<{ question: string; answer: string }> = [
   {
     question: "Quanto custa?",
     answer:
-      "R$ 14,90/mês, com 7 dias de teste grátis sem precisar de cartão de crédito. A assinatura inclui personagens ilimitados, todos os recursos de IA e o diário completo. Cancele quando quiser.",
+      "R$ 14,90/mês, com 7 dias de teste grátis sem precisar de cartão de crédito. A assinatura inclui personagens ilimitados, o diário completo e a IA (Davena, recap e retrospectiva) com até 100 usos por mês. Cancele quando quiser.",
+  },
+  {
+    question: "A IA tem limite de uso?",
+    answer:
+      "Sim, um limite generoso de 100 usos de IA por mês (a Davena organizando anotações, recaps e retrospectivas somados), que renova no início de cada mês. Uma mesa que joga toda semana costuma usar bem menos que isso — o limite existe só para manter o serviço sustentável e o preço baixo. Você vê quantos usos ainda tem direto no app.",
   },
   {
     question: "Preciso saber usar IA?",
