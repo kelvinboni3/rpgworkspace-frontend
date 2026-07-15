@@ -7,11 +7,14 @@ import {
   Mail,
   Maximize2,
   Mic,
+  PenLine,
   Quote,
   ScrollText,
   Share2,
   Sparkles,
   Swords,
+  Undo2,
+  Wand2,
   X,
 } from "lucide-react";
 import { Link, Navigate } from "react-router";
@@ -30,7 +33,7 @@ const FEATURES: Array<{ icon: ReactNode; title: string; description: string }> =
     icon: <Sparkles className="size-5" />,
     title: "IA a favor da sua mesa",
     description:
-      "Transforme anotações soltas em registros estruturados, receba recaps da última sessão e uma retrospectiva ao encerrar a campanha.",
+      "A Davena transforma anotações soltas em registros estruturados na ficha — e você ainda recebe recaps da última sessão e uma retrospectiva ao encerrar a campanha.",
   },
   {
     icon: <Share2 className="size-5" />,
@@ -55,6 +58,28 @@ const FEATURES: Array<{ icon: ReactNode; title: string; description: string }> =
     title: "Exporte quando quiser",
     description:
       "Baixe o diário inteiro em Markdown. Seus dados são seus, sem amarras.",
+  },
+];
+
+// Espelha o fluxo real do NoteStructuringWidget (a Davena do app).
+const DAVENA_STEPS: Array<{ icon: ReactNode; title: string; description: string }> = [
+  {
+    icon: <PenLine className="size-4" />,
+    title: "Conte o que rolou",
+    description:
+      "Cole suas anotações soltas — ou dite por voz — do jeito que saírem, sem se preocupar com formato.",
+  },
+  {
+    icon: <Wand2 className="size-4" />,
+    title: "Ela organiza tudo",
+    description:
+      "A Davena entende o que é pessoa, teoria, item ou segredo e salva direto nas abas e blocos certos da ficha.",
+  },
+  {
+    icon: <Undo2 className="size-4" />,
+    title: "Você dá a palavra final",
+    description:
+      "Confira o que foi criado ou atualizado — e desfaça com um clique se algo não ficar do seu jeito.",
   },
 ];
 
@@ -108,7 +133,7 @@ const FAQ: Array<{ question: string; answer: string }> = [
   {
     question: "Preciso saber usar IA?",
     answer:
-      "Não. Os recursos de IA funcionam com um clique: transformam suas anotações soltas em registros estruturados e geram o recap da última sessão. Você não escreve prompt nenhum.",
+      "Não. A Davena, nossa assistente de anotações, funciona com um clique: você cola (ou dita) suas anotações soltas e ela organiza tudo nas abas e blocos da ficha — além do recap da última sessão. Você não escreve prompt nenhum.",
   },
   {
     question: "Funciona no celular e sem internet?",
@@ -293,6 +318,71 @@ export function LandingPage() {
                 </p>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Davena, a assistente de anotações */}
+        <section className="flex flex-col items-center gap-8 pb-20">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h2 className="font-display text-2xl font-bold text-balance sm:text-3xl">
+              Conheça a Davena, a guardiã das suas anotações
+            </h2>
+            <p className="text-muted-foreground max-w-lg text-sm sm:text-base">
+              Anotar no calor da sessão é bagunçado — e tudo bem. Organizar depois é com
+              ela.
+            </p>
+          </div>
+          <div className="glass-panel grid w-full items-center gap-8 p-8 sm:grid-cols-[240px_1fr] sm:p-10">
+            <div className="flex flex-col items-center gap-3">
+              <img
+                src="/davena.png"
+                alt="Davena, a assistente de anotações do Aventurário"
+                loading="lazy"
+                className="w-44 max-w-full sm:w-56"
+              />
+              <div className="flex flex-col items-center gap-1 text-center">
+                <p className="font-display text-lg font-semibold">Davena</p>
+                <span className="text-primary inline-flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase">
+                  <Sparkles aria-hidden className="size-3" />
+                  Guardiã de anotações
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-6">
+              <div className="flex items-end gap-2">
+                <img
+                  src="/davena-avatar.png"
+                  alt=""
+                  className="size-8 shrink-0 rounded-full object-cover"
+                />
+                <p className="border-border/50 bg-muted/50 rounded-2xl rounded-bl-sm border px-3.5 py-2.5 text-sm">
+                  Me conta como foi a sessão! Cola (ou dita) suas anotações que eu organizo
+                  tudo na ficha. ✒️
+                </p>
+              </div>
+              <ol className="flex flex-col gap-4">
+                {DAVENA_STEPS.map((step) => (
+                  <li key={step.title} className="flex items-start gap-3">
+                    <div
+                      aria-hidden
+                      className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-xl"
+                    >
+                      {step.icon}
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <h3 className="font-display text-base font-semibold">{step.title}</h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed">
+                        {step.description}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <p className="text-muted-foreground text-xs">
+                Sem escrever prompt nenhum: é colar (ou ditar) e clicar em “Organizar com a
+                Davena”.
+              </p>
+            </div>
           </div>
         </section>
 
