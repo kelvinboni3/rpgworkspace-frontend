@@ -164,7 +164,9 @@ export async function applySuggestions(
         mode: "update",
         tabName,
         type: suggestion.type,
-        title: suggestion.title,
+        // Sempre o título real do bloco (a IA nem sempre reenvia um título no update) — assim a
+        // lista de resultados mostra QUAL bloco foi mexido (ex.: "Pessoas · Ryuka"), não só a aba.
+        title: suggestion.title ?? previousBlock.title,
         undone: false,
         undo: {
           kind: "restore-block",
