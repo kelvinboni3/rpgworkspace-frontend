@@ -8,6 +8,75 @@ import type { SuggestedBlock } from "@/services/note-structuring-service";
 
 const PAYLOAD_TYPES: CharacterTabBlockTypeValue[] = [CharacterTabBlockType.Card, CharacterTabBlockType.Table];
 
+type CardRow = { k: string; v: string };
+type CardPayload = { rows: CardRow[] };
+type TablePayload = { headers: string[]; rows: string[][] };
+
+function parseJson<T>(raw: string | null): T | null {
+  if (!raw?.trim()) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** Junta o texto que já estava no bloco com o que a IA devolveu, sem perder o antigo.
+ * Robusto aos dois comportamentos do modelo: se ele devolveu o texto já mesclado (contendo
+ * o antigo), usamos o dele; se devolveu só a novidade, anexamos ao antigo. Assim a correção
+ * funciona mesmo com o backend atual, que pede o texto mesclado mas nem sempre recebe. */
+function mergeTextContent(previous: string | null, incoming: string | null): string | null {
+  const prev = previous?.trim() ? previous : null;
+  const next = incoming?.trim() ? incoming : null;
+  if (!prev) return next;
+  if (!next) return prev;
+  if (next.includes(prev.trim())) return next; // a IA já devolveu mesclado
+  return `${prev}\n\n${next}`;
+}
+
+/** Upsert das linhas do Card por chave: mantém todas as linhas antigas, atualiza o valor
+ * quando a IA reenvia a mesma chave e acrescenta as novas — nunca remove o que já existia. */
+function mergeCardPayload(previousJson: string | null, incomingJson: string | null): string | null {
+  const prevRows = parseJson<CardPayload>(previousJson)?.rows;
+  const nextRows = parseJson<CardPayload>(incomingJson)?.rows;
+  if (!Array.isArray(prevRows)) return incomingJson ?? previousJson;
+  if (!Array.isArray(nextRows)) return previousJson;
+
+  const merged: CardRow[] = prevRows.map((row) => ({ ...row }));
+  for (const row of nextRows) {
+    if (!row || typeof row.k !== "string") continue;
+    const key = row.k.trim().toLowerCase();
+    const existing = merged.find((r) => r.k.trim().toLowerCase() === key);
+    if (existing) existing.v = row.v;
+    else merged.push({ k: row.k, v: row.v });
+  }
+  return JSON.stringify({ rows: merged });
+}
+
+/** Mantém as linhas existentes da Tabela e acrescenta só as novas (sem duplicar linhas idênticas). */
+function mergeTablePayload(previousJson: string | null, incomingJson: string | null): string | null {
+  const previous = parseJson<TablePayload>(previousJson);
+  const incoming = parseJson<TablePayload>(incomingJson);
+  const prevRows = previous?.rows;
+  const nextRows = incoming?.rows;
+  if (!Array.isArray(prevRows)) return incomingJson ?? previousJson;
+  if (!Array.isArray(nextRows)) return previousJson;
+
+  const headers =
+    Array.isArray(previous?.headers) && previous.headers.length > 0
+      ? previous.headers
+      : (incoming?.headers ?? []);
+  const seen = new Set(prevRows.map((row) => JSON.stringify(row)));
+  const merged = [...prevRows];
+  for (const row of nextRows) {
+    const key = JSON.stringify(row);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(row);
+  }
+  return JSON.stringify({ headers, rows: merged });
+}
+
 type BlockSnapshot = { title: string | null; content: string | null; payloadJson: string | null };
 
 type ItemUndo =
@@ -52,10 +121,27 @@ export async function applySuggestions(
     if (suggestion.targetBlockId && suggestion.targetTabId) {
       const previousBlock = await CharacterTabBlockService.getById(suggestion.targetBlockId);
 
+      // Ao ATUALIZAR um bloco que já existe, a Davena deve incrementar, nunca apagar o que
+      // já estava lá. O merge é feito aqui (não confiamos no modelo devolver o texto mesclado)
+      // e usa o tipo do bloco existente — o tipo é imutável no update. O título antigo é
+      // preservado quando a sugestão não traz um novo, pra não zerar por engano.
+      let mergedContent: string | null;
+      let mergedPayloadJson: string | null;
+      if (previousBlock.type === CharacterTabBlockType.Card) {
+        mergedContent = previousBlock.content;
+        mergedPayloadJson = mergeCardPayload(previousBlock.payloadJson, suggestion.payloadJson);
+      } else if (previousBlock.type === CharacterTabBlockType.Table) {
+        mergedContent = previousBlock.content;
+        mergedPayloadJson = mergeTablePayload(previousBlock.payloadJson, suggestion.payloadJson);
+      } else {
+        mergedContent = mergeTextContent(previousBlock.content, suggestion.content);
+        mergedPayloadJson = previousBlock.payloadJson;
+      }
+
       await CharacterTabBlockService.update(suggestion.targetBlockId, {
-        title: suggestion.title,
-        content: suggestion.content,
-        payloadJson,
+        title: suggestion.title ?? previousBlock.title,
+        content: mergedContent,
+        payloadJson: mergedPayloadJson,
       });
 
       const tabName = tabs.find((t) => t.id === suggestion.targetTabId)?.name ?? "?";
