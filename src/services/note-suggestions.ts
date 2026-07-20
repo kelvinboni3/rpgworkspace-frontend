@@ -12,6 +12,19 @@ type CardRow = { k: string; v: string };
 type CardPayload = { rows: CardRow[] };
 type TablePayload = { headers: string[]; rows: string[][] };
 
+// Espelham as validações do backend (UpdateCharacterTabBlockRequest): Content [MaxLength(50000)]
+// e Title [MaxLength(200)]. Como agora acumulamos conteúdo ao atualizar, respeitamos o teto no
+// cliente como rede de segurança — só age exatamente no ponto em que o backend rejeitaria (nunca
+// corta conteúdo que o backend aceitaria), convertendo um raro 400 num corte gracioso do excedente.
+const MAX_CONTENT_LENGTH = 50000;
+const MAX_TITLE_LENGTH = 200;
+
+const capLength = (value: string | null, max: number): string | null =>
+  value !== null && value.length > max ? value.slice(0, max) : value;
+
+/** Ignora diferenças de espaço/quebra de linha ao comparar se um texto já contém o outro. */
+const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
+
 function parseJson<T>(raw: string | null): T | null {
   if (!raw?.trim()) return null;
   try {
@@ -23,15 +36,17 @@ function parseJson<T>(raw: string | null): T | null {
 
 /** Junta o texto que já estava no bloco com o que a IA devolveu, sem perder o antigo.
  * Robusto aos dois comportamentos do modelo: se ele devolveu o texto já mesclado (contendo
- * o antigo), usamos o dele; se devolveu só a novidade, anexamos ao antigo. Assim a correção
- * funciona mesmo com o backend atual, que pede o texto mesclado mas nem sempre recebe. */
+ * o antigo, ignorando espaçamento), usamos o dele; se devolveu só a novidade, anexamos ao antigo.
+ * O resultado é limitado a MAX_CONTENT_LENGTH — como o conteúdo antigo vem primeiro, ele nunca é
+ * perdido; só o excedente da adição mais nova é cortado, evitando o 400 do backend. */
 function mergeTextContent(previous: string | null, incoming: string | null): string | null {
   const prev = previous?.trim() ? previous : null;
   const next = incoming?.trim() ? incoming : null;
-  if (!prev) return next;
-  if (!next) return prev;
-  if (next.includes(prev.trim())) return next; // a IA já devolveu mesclado
-  return `${prev}\n\n${next}`;
+  if (!prev) return capLength(next, MAX_CONTENT_LENGTH);
+  if (!next) return capLength(prev, MAX_CONTENT_LENGTH);
+  if (normalizeWhitespace(next).includes(normalizeWhitespace(prev)))
+    return capLength(next, MAX_CONTENT_LENGTH); // a IA já devolveu mesclado
+  return capLength(`${prev}\n\n${next}`, MAX_CONTENT_LENGTH);
 }
 
 /** Upsert das linhas do Card por chave: mantém todas as linhas antigas, atualiza o valor
@@ -139,7 +154,7 @@ export async function applySuggestions(
       }
 
       await CharacterTabBlockService.update(suggestion.targetBlockId, {
-        title: suggestion.title ?? previousBlock.title,
+        title: capLength(suggestion.title ?? previousBlock.title, MAX_TITLE_LENGTH),
         content: mergedContent,
         payloadJson: mergedPayloadJson,
       });
