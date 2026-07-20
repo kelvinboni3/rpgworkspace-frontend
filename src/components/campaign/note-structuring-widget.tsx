@@ -19,13 +19,19 @@ import { AiUsageService } from "@/services/ai-usage-service";
 import { paths } from "@/routes/paths";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 import { AppliedResultsList } from "@/components/campaign/applied-results-list";
+import { SuggestionReviewList } from "@/components/campaign/suggestion-review-list";
 import { NoteStructuringService } from "@/services/note-structuring-service";
+import { CharacterTabBlockService } from "@/services/character-tab-block-service";
 import {
-  applySuggestions,
+  applyDecisions,
+  flattenBlocks,
   hasUndoableItems,
+  resolveSuggestions,
   undoItem,
   undoRemaining,
   type AppliedBatch,
+  type FlatBlock,
+  type ReviewDecision,
 } from "@/services/note-suggestions";
 import { extractErrorMessage } from "@/utils/api-error";
 import { cn } from "@/utils/cn";
@@ -82,6 +88,7 @@ export function NoteStructuringWidget({
   const [noteText, setNoteText] = useState("");
   const [preferredTabId, setPreferredTabId] = useState("");
   const [batch, setBatch] = useState<AppliedBatch | null>(null);
+  const [review, setReview] = useState<{ decisions: ReviewDecision[]; blocks: FlatBlock[] } | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -108,7 +115,9 @@ export function NoteStructuringWidget({
     },
   });
 
-  const structureAndApplyMutation = useMutation({
+  // 1) Estruturar: a IA propõe, e o código já resolve o melhor destino (matching por título).
+  //    Nada é gravado ainda — o usuário revisa antes.
+  const reviewMutation = useMutation({
     mutationFn: async () => {
       const preferredTabName = tabs.find((t) => t.id === preferredTabId)?.name;
       const { summary, suggestions } = await NoteStructuringService.structure(
@@ -116,32 +125,55 @@ export function NoteStructuringWidget({
         noteText,
         preferredTabName,
       );
-      const applied = await applySuggestions(characterId, tabs, suggestions);
-      return { applied, summary };
+      const blockTrees = await Promise.all(tabs.map((t) => CharacterTabBlockService.getAllByTab(t.id)));
+      const blocks = blockTrees.flatMap((tree, i) => flattenBlocks(tree, tabs[i].id, tabs[i].name));
+      const decisions = resolveSuggestions(suggestions, blocks);
+      return { summary, decisions, blocks };
     },
-    onSuccess: ({ applied, summary }) => {
-      invalidateCharacterQueries();
+    onSuccess: ({ summary, decisions, blocks }) => {
       queryClient.invalidateQueries({ queryKey: ["ai-usage"] });
-      if (applied.firstTabId) onApplied(applied.firstTabId);
-      setBatch(applied);
       setSummary(summary);
+      setReview({ decisions, blocks });
     },
   });
 
-  const errorMessage = structureAndApplyMutation.isError
-    ? isAxiosError(structureAndApplyMutation.error) && structureAndApplyMutation.error.response?.status === 503
+  // 2) Aplicar: grava só as decisões revisadas (já ajustadas pelo usuário).
+  const applyMutation = useMutation({
+    mutationFn: () => applyDecisions(characterId, tabs, review!.decisions),
+    onSuccess: (applied) => {
+      invalidateCharacterQueries();
+      if (applied.firstTabId) onApplied(applied.firstTabId);
+      setBatch(applied);
+      setReview(null);
+    },
+  });
+
+  const updateDecision = (index: number, next: ReviewDecision) => {
+    setReview((current) =>
+      current
+        ? { ...current, decisions: current.decisions.map((d, i) => (i === index ? next : d)) }
+        : current,
+    );
+  };
+
+  const errorMessage = reviewMutation.isError
+    ? isAxiosError(reviewMutation.error) && reviewMutation.error.response?.status === 503
       ? "IA indisponível no momento, tente novamente em instantes."
-      : isAxiosError(structureAndApplyMutation.error) && structureAndApplyMutation.error.response?.status === 402
+      : isAxiosError(reviewMutation.error) && reviewMutation.error.response?.status === 402
         ? "A IA é exclusiva para assinantes. Assine para desbloquear."
-        : extractErrorMessage(structureAndApplyMutation.error, "Não foi possível estruturar a anotação.")
-    : null;
+        : extractErrorMessage(reviewMutation.error, "Não foi possível estruturar a anotação.")
+    : applyMutation.isError
+      ? extractErrorMessage(applyMutation.error, "Não foi possível aplicar as alterações.")
+      : null;
 
   const startNewNote = () => {
     if (dictation.isListening) dictation.stop();
     setBatch(null);
+    setReview(null);
     setSummary(null);
     setNoteText("");
-    structureAndApplyMutation.reset();
+    reviewMutation.reset();
+    applyMutation.reset();
     undoAllMutation.reset();
     undoItemMutation.reset();
   };
@@ -168,8 +200,10 @@ export function NoteStructuringWidget({
 
   const handleStructureClick = () => {
     if (dictation.isListening) dictation.stop();
-    structureAndApplyMutation.mutate();
+    reviewMutation.mutate();
   };
+
+  const applyableCount = review?.decisions.filter((d) => d.action !== "skip").length ?? 0;
 
   return createPortal(
     <>
@@ -291,6 +325,59 @@ export function NoteStructuringWidget({
                   </Button>
                 </div>
               </>
+            ) : review ? (
+              <>
+                {summary && <DavenaBubble>{summary}</DavenaBubble>}
+                {review.decisions.length === 0 ? (
+                  <p className="text-muted-foreground py-6 text-center text-sm italic">
+                    Não encontrei nada estruturável nessa anotação.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-muted-foreground text-xs">
+                      Revise antes de aplicar: confirme se é pra <strong>atualizar</strong> um bloco
+                      (e qual) ou <strong>criar</strong> um novo. Nada foi salvo ainda.
+                    </p>
+                    <SuggestionReviewList
+                      decisions={review.decisions}
+                      blocks={review.blocks}
+                      tabs={tabs}
+                      onChange={updateDecision}
+                      disabled={applyMutation.isPending}
+                    />
+                  </>
+                )}
+
+                {errorMessage && (
+                  <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
+                    <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={startNewNote}
+                    disabled={applyMutation.isPending}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => applyMutation.mutate()}
+                    disabled={applyMutation.isPending || applyableCount === 0}
+                  >
+                    {applyMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                    {applyMutation.isPending
+                      ? "Aplicando..."
+                      : applyableCount === 0
+                        ? "Nada selecionado"
+                        : `Aplicar (${applyableCount})`}
+                  </Button>
+                </div>
+              </>
             ) : (
               <>
                 <DavenaBubble>
@@ -319,7 +406,7 @@ export function NoteStructuringWidget({
                       id="davena-target-tab"
                       value={preferredTabId}
                       onChange={(e) => setPreferredTabId(e.target.value)}
-                      disabled={structureAndApplyMutation.isPending}
+                      disabled={reviewMutation.isPending}
                       className="h-9"
                     >
                       <option value="">Deixar a Davena decidir (recomendado)</option>
@@ -344,7 +431,7 @@ export function NoteStructuringWidget({
                       onChange={(e) => setNoteText(e.target.value.slice(0, NOTE_MAX_LENGTH))}
                       rows={8}
                       maxLength={NOTE_MAX_LENGTH}
-                      disabled={structureAndApplyMutation.isPending}
+                      disabled={reviewMutation.isPending}
                       placeholder={
                         dictation.isListening
                           ? "Ouvindo... fale sua anotação."
@@ -356,7 +443,7 @@ export function NoteStructuringWidget({
                       <button
                         type="button"
                         onClick={() => (dictation.isListening ? dictation.stop() : dictation.start())}
-                        disabled={structureAndApplyMutation.isPending}
+                        disabled={reviewMutation.isPending}
                         title={dictation.isListening ? "Parar ditado por voz" : "Ditar anotação por voz"}
                         className={cn(
                           "absolute top-2 right-2 flex size-6 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
@@ -396,10 +483,10 @@ export function NoteStructuringWidget({
                   <Button
                     type="button"
                     onClick={handleStructureClick}
-                    disabled={!noteText.trim() || structureAndApplyMutation.isPending}
+                    disabled={!noteText.trim() || reviewMutation.isPending}
                   >
-                    {structureAndApplyMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                    {structureAndApplyMutation.isPending ? "Organizando e salvando..." : "Organizar com a Davena"}
+                    {reviewMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                    {reviewMutation.isPending ? "Analisando..." : "Organizar com a Davena"}
                   </Button>
                 </div>
               </>
