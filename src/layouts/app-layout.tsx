@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Dices, Lock, LogOut, Moon, ScrollText, Sun } from "lucide-react";
+import { Beer, Check, Dices, Lock, LogOut, Moon, ScrollText, Sun } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router";
+import { TavernaProvider } from "@/components/taverna/taverna-provider";
+import { VoiceFloatingBar } from "@/components/taverna/voice-floating-bar";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
+import { useTaverna } from "@/hooks/use-taverna";
 import { paths } from "@/routes/paths";
 import { authStore } from "@/store/auth-store";
 import { cn } from "@/utils/cn";
@@ -117,6 +120,8 @@ function UserMenu() {
 }
 
 function NavLinks() {
+  const { me, unreadChannelIds, voice } = useTaverna();
+
   return (
     <nav className="flex items-center gap-1">
       <NavLink
@@ -147,11 +152,41 @@ function NavLinks() {
         <Lock className="size-3.5" />
         <span className="hidden sm:inline">Mestre</span>
       </NavLink>
+      {/* Só aparece para quem tem linha ativa em community_members (liberado à mão no banco). */}
+      {me && (
+        <NavLink
+          to={paths.taverna}
+          aria-label="Taverna"
+          className={({ isActive }) =>
+            cn(
+              "relative flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors sm:px-3",
+              isActive
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )
+          }
+        >
+          <Beer className={cn("size-4", voice && "text-emerald-500")} />
+          <span className="hidden sm:inline">Taverna</span>
+          {unreadChannelIds.size > 0 && (
+            <span className="bg-destructive absolute top-1 right-1 size-2 rounded-full" />
+          )}
+        </NavLink>
+      )}
     </nav>
   );
 }
 
+// O provider da Taverna envolve o shell inteiro: a chamada de voz sobrevive à navegação entre páginas.
 export function AppLayout() {
+  return (
+    <TavernaProvider>
+      <AppShell />
+    </TavernaProvider>
+  );
+}
+
+function AppShell() {
   return (
     <div className="hub-backdrop flex min-h-screen w-full flex-col">
       <header className="border-border/60 bg-background/60 sticky top-0 z-10 border-b backdrop-blur-xl">
@@ -176,6 +211,7 @@ export function AppLayout() {
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-8">
         <Outlet />
       </main>
+      <VoiceFloatingBar />
     </div>
   );
 }

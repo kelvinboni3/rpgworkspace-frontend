@@ -18,6 +18,9 @@ import { WorkspaceDetailPage } from "@/pages/workspace-detail-page";
 import { paths } from "@/routes/paths";
 import { ProtectedRoute } from "@/routes/protected-route";
 
+const loadTavernaPage = () =>
+  import("@/pages/taverna-page").then((module) => ({ Component: module.TavernaPage }));
+
 export const router = createBrowserRouter([
   {
     path: paths.landing,
@@ -84,6 +87,15 @@ export const router = createBrowserRouter([
           {
             path: "subscription",
             element: <SubscriptionPage />,
+          },
+          // Lazy: só os amigos com acesso baixam o código da Taverna (chat + LiveKit).
+          {
+            path: "taverna",
+            lazy: loadTavernaPage,
+          },
+          {
+            path: "taverna/:channelId",
+            lazy: loadTavernaPage,
           },
         ],
       },

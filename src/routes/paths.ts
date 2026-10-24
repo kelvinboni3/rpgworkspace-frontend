@@ -11,8 +11,10 @@ export const paths = {
   gmArea: "/gm",
   gmWorkspaces: "/gm/workspaces",
   subscription: "/subscription",
+  taverna: "/taverna",
   workspace: (workspaceId: string) => `/workspaces/${workspaceId}`,
   campaign: (campaignId: string) => `/campaigns/${campaignId}`,
   character: (characterId: string) => `/characters/${characterId}`,
   publicCharacter: (token: string) => `/c/${token}`,
+  tavernaChannel: (channelId: string) => `/taverna/${channelId}`,
 } as const;
