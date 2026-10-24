@@ -17,6 +17,9 @@ export type PresenceSnapshot = {
   voice: VoiceState[];
 };
 
+/** smooth = jogos/vídeo (1080p30, segura o FPS); sharp = texto/mapas/fichas (1080p15, segura a nitidez). */
+export type ScreenShareMode = "smooth" | "sharp";
+
 export type VoiceConnection = {
   channelId: string;
   room: Room;
@@ -47,6 +50,8 @@ export type TavernaContextValue = {
   leaveVoice: () => Promise<void>;
   toggleMute: () => Promise<void>;
   toggleDeafen: () => Promise<void>;
+  screenShareMode: ScreenShareMode;
+  setScreenShareMode: (mode: ScreenShareMode) => void;
   startScreenShare: () => Promise<void>;
   stopScreenShare: () => Promise<void>;
   startAudio: () => Promise<void>;

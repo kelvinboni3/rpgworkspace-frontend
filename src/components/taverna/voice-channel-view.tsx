@@ -6,6 +6,8 @@ import {
   type VideoTrack,
 } from "livekit-client";
 import {
+  Eye,
+  Gauge,
   Headphones,
   HeadphoneOff,
   Loader2,
@@ -59,12 +61,17 @@ export function VoiceChannelView({ channel }: { channel: CommunityChannel }) {
     leaveVoice,
     toggleMute,
     toggleDeafen,
+    screenShareMode,
+    setScreenShareMode,
     startScreenShare,
     stopScreenShare,
   } = useTaverna();
   const { nameById } = useTavernaMembers();
   const stageRef = useRef<HTMLDivElement>(null);
   const [joining, setJoining] = useState(false);
+  // Prévia da própria tela começa desligada: renderizar a captura dentro da página que está sendo
+  // capturada gera o "espelho infinito" e deixa o encoder de quem transmite mais pesado.
+  const [showOwnPreview, setShowOwnPreview] = useState(false);
 
   const isHere = voice?.channelId === channel.id;
   void voiceVersion; // a Room é mutável; voiceVersion força o re-render a cada evento
@@ -77,6 +84,7 @@ export function VoiceChannelView({ channel }: { channel: CommunityChannel }) {
   const sharedTrack = sharer ? screenShareOf(sharer) : null;
   const isSharing = room?.localParticipant.isScreenShareEnabled ?? false;
   const someoneElseSharing = Boolean(sharer && sharer !== room?.localParticipant);
+  const isLocalSharer = Boolean(sharer && sharer === room?.localParticipant);
 
   // Fora da sala: mostra quem está lá pela presença do hub.
   const outsideUsers = presence.voice.filter((v) => v.channelId === channel.id);
@@ -139,7 +147,24 @@ export function VoiceChannelView({ channel }: { channel: CommunityChannel }) {
             {sharedTrack && sharer ? (
               <div className="flex h-full flex-col gap-3">
                 <div ref={stageRef} className="group relative min-h-0 flex-1 overflow-hidden rounded-xl bg-black">
-                  <VideoTrackView track={sharedTrack} className="h-full w-full object-contain" />
+                  {isLocalSharer && !showOwnPreview ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-white">
+                      <MonitorUp className="size-10 text-red-500" />
+                      <p className="font-display text-lg font-semibold">Você está transmitindo sua tela</p>
+                      <p className="max-w-sm text-sm text-white/60">
+                        A prévia fica desligada para não pesar na sua transmissão.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowOwnPreview(true)}
+                        className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                      >
+                        <Eye className="size-3.5" /> Mostrar prévia
+                      </button>
+                    </div>
+                  ) : (
+                    <VideoTrackView track={sharedTrack} className="h-full w-full object-contain" />
+                  )}
                   <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-md bg-black/60 px-2 py-1 text-xs text-white">
                     <span className="flex items-center gap-1 rounded bg-red-500 px-1 text-[10px] font-bold">AO VIVO</span>
                     {sharer === room?.localParticipant ? "Você está transmitindo" : `Tela de ${sharer.name || nameById.get(sharer.identity) || "alguém"}`}
@@ -212,6 +237,36 @@ export function VoiceChannelView({ channel }: { channel: CommunityChannel }) {
             <ControlButton label="Sair da sala" danger solid onClick={() => void leaveVoice()}>
               <PhoneOff />
             </ControlButton>
+          </div>
+          <div className="text-muted-foreground flex shrink-0 items-center justify-center gap-2 pb-3 text-xs">
+            <Gauge className="size-3.5" />
+            <span>Transmissão:</span>
+            <div className="bg-secondary flex rounded-md p-0.5" role="radiogroup" aria-label="Qualidade da transmissão">
+              {(
+                [
+                  { mode: "smooth", label: "Fluida", hint: "1080p 30fps — jogos e vídeos" },
+                  { mode: "sharp", label: "Nítida", hint: "1080p 15fps — texto, mapas e fichas" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={screenShareMode === option.mode}
+                  title={isSharing ? "Pare e recomece a transmissão para trocar" : option.hint}
+                  disabled={isSharing}
+                  onClick={() => setScreenShareMode(option.mode)}
+                  className={cn(
+                    "rounded px-2.5 py-1 transition-colors disabled:cursor-not-allowed",
+                    screenShareMode === option.mode
+                      ? "bg-background text-foreground shadow-sm"
+                      : "hover:text-foreground",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
           {me && !window.isSecureContext && (
             <p className="text-destructive pb-2 text-center text-xs">

@@ -16,6 +16,7 @@ import {
   TavernaContext,
   type HubStatus,
   type PresenceSnapshot,
+  type ScreenShareMode,
   type TavernaContextValue,
   type VoiceConnection,
 } from "@/components/taverna/taverna-context";
@@ -27,6 +28,15 @@ import { authStore } from "@/store/auth-store";
 const EMPTY_PRESENCE: PresenceSnapshot = { onlineUserIds: [], voice: [] };
 const TYPING_TTL_MS = 6000;
 const TYPING_THROTTLE_MS = 3000;
+const SCREEN_SHARE_MODE_KEY = "taverna-screen-share-mode";
+
+function readScreenShareMode(): ScreenShareMode {
+  try {
+    return localStorage.getItem(SCREEN_SHARE_MODE_KEY) === "sharp" ? "sharp" : "smooth";
+  } catch {
+    return "smooth";
+  }
+}
 
 /**
  * Estado global da Taverna: conexão SignalR (mensagens/presença/digitando) e a sala de voz do
@@ -70,6 +80,16 @@ export function TavernaProvider({ children }: { children: ReactNode }) {
   const audioElementsRef = useRef(new Map<string, HTMLMediaElement>());
   const voiceStateRef = useRef({ channelId: null as string | null, micMuted: false, deafened: false });
   const mutedBeforeDeafenRef = useRef(false);
+  const [screenShareMode, setScreenShareModeState] = useState<ScreenShareMode>(readScreenShareMode);
+
+  const setScreenShareMode = useCallback((mode: ScreenShareMode) => {
+    setScreenShareModeState(mode);
+    try {
+      localStorage.setItem(SCREEN_SHARE_MODE_KEY, mode);
+    } catch {
+      // Preferência só não fica salva — segue funcionando.
+    }
+  }, []);
 
   useEffect(() => {
     voiceStateRef.current = { channelId: voice?.channelId ?? null, micMuted, deafened };
@@ -446,16 +466,27 @@ export function TavernaProvider({ children }: { children: ReactNode }) {
 
     try {
       const { ScreenSharePresets } = await import("livekit-client");
+      // O SFU só repassa pacotes (a VPS mal sente a transmissão); o gargalo é o encoder e o upload
+      // de quem transmite. H.264 costuma usar o encoder de hardware da GPU → menos CPU e menos lag.
+      // "smooth" pede ao navegador que derrube resolução antes de FPS; "sharp", o contrário.
+      const smooth = screenShareMode === "smooth";
+      const preset = smooth ? ScreenSharePresets.h1080fps30 : ScreenSharePresets.h1080fps15;
       await room.localParticipant.setScreenShareEnabled(
         true,
         {
           audio: true,
           systemAudio: "include",
           selfBrowserSurface: "exclude",
-          contentHint: "detail",
-          resolution: ScreenSharePresets.h720fps15.resolution,
+          contentHint: smooth ? "motion" : "detail",
+          resolution: preset.resolution,
         },
-        { screenShareEncoding: ScreenSharePresets.h720fps15.encoding, videoCodec: "vp8" },
+        {
+          videoCodec: "h264",
+          screenShareEncoding: smooth
+            ? { maxBitrate: 4_500_000, maxFramerate: 30 }
+            : { maxBitrate: 3_000_000, maxFramerate: 15 },
+          degradationPreference: smooth ? "maintain-framerate" : "maintain-resolution",
+        },
       );
     } catch (error) {
       void invokeHub("StopScreenShare");
@@ -466,7 +497,7 @@ export function TavernaProvider({ children }: { children: ReactNode }) {
       }
     }
     bumpVoice();
-  }, [invokeHub]);
+  }, [invokeHub, screenShareMode]);
 
   const stopScreenShare = useCallback(async () => {
     const room = roomRef.current;
@@ -518,6 +549,8 @@ export function TavernaProvider({ children }: { children: ReactNode }) {
       leaveVoice,
       toggleMute,
       toggleDeafen,
+      screenShareMode,
+      setScreenShareMode,
       startScreenShare,
       stopScreenShare,
       startAudio,
@@ -542,6 +575,8 @@ export function TavernaProvider({ children }: { children: ReactNode }) {
       leaveVoice,
       toggleMute,
       toggleDeafen,
+      screenShareMode,
+      setScreenShareMode,
       startScreenShare,
       stopScreenShare,
       startAudio,
